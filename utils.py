@@ -74,7 +74,7 @@ def load_and_process_data():
     df = df[df['valor'] > 0]
     
     # Add derived columns
-    if 'dataCriacao' in df.columns:
+    if 'dataCriacao' in df.columns and not df['dataCriacao'].isna().all():
         df['mesAno'] = df['dataCriacao'].dt.to_period('M')
         df['ano'] = df['dataCriacao'].dt.year
         df['mes'] = df['dataCriacao'].dt.month

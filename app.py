@@ -118,7 +118,7 @@ try:
                 title="Top 10 Agências por Valor"
             )
             fig_agency.update_layout(height=400)
-            st.plotly_chart(fig_agency, use_container_width=True)
+            st.plotly_chart(fig_agency, width='stretch')
         
         with col2:
             st.subheader("🥧 Distribuição por Carteira")
@@ -130,7 +130,7 @@ try:
                 title="Distribuição por Carteira de Negócio"
             )
             fig_portfolio.update_layout(height=400)
-            st.plotly_chart(fig_portfolio, use_container_width=True)
+            st.plotly_chart(fig_portfolio, width='stretch')
         
         # Row 2: Managers and Timeline
         col1, col2 = st.columns(2)
@@ -147,7 +147,7 @@ try:
                 title="Top 10 Gerentes por Número de Propostas"
             )
             fig_managers.update_layout(height=400)
-            st.plotly_chart(fig_managers, use_container_width=True)
+            st.plotly_chart(fig_managers, width='stretch')
         
         with col2:
             st.subheader("📈 Timeline de Propostas")
@@ -161,7 +161,7 @@ try:
                     title="Propostas Criadas por Data"
                 )
                 fig_timeline.update_layout(height=400)
-                st.plotly_chart(fig_timeline, use_container_width=True)
+                st.plotly_chart(fig_timeline, width='stretch')
         
         # Row 3: Process Time Analysis
         st.subheader("⏱️ Análise de Prazos")
@@ -177,7 +177,7 @@ try:
                 nbins=20
             )
             fig_agency_days.update_layout(height=300)
-            st.plotly_chart(fig_agency_days, use_container_width=True)
+            st.plotly_chart(fig_agency_days, width='stretch')
         
         with col2:
             st.metric("Dias Médios na Central", f"{filtered_df['totalDiasCentral'].mean():.0f}")
@@ -188,7 +188,7 @@ try:
                 nbins=20
             )
             fig_central_days.update_layout(height=300)
-            st.plotly_chart(fig_central_days, use_container_width=True)
+            st.plotly_chart(fig_central_days, width='stretch')
         
         with col3:
             st.metric("Dias Médios no Comitê", f"{filtered_df['totalDiasComite'].mean():.0f}")
@@ -199,7 +199,7 @@ try:
                 nbins=20
             )
             fig_committee_days.update_layout(height=300)
-            st.plotly_chart(fig_committee_days, use_container_width=True)
+            st.plotly_chart(fig_committee_days, width='stretch')
         
         # Row 4: Value Analysis
         col1, col2 = st.columns(2)
@@ -216,7 +216,7 @@ try:
                 title="Valor Total por Carteira de Negócio"
             )
             fig_portfolio_values.update_layout(height=400)
-            st.plotly_chart(fig_portfolio_values, use_container_width=True)
+            st.plotly_chart(fig_portfolio_values, width='stretch')
         
         with col2:
             st.subheader("🏢 Valores por Central")
@@ -230,7 +230,7 @@ try:
                 title="Valor Total por Central"
             )
             fig_central_values.update_layout(height=400)
-            st.plotly_chart(fig_central_values, use_container_width=True)
+            st.plotly_chart(fig_central_values, width='stretch')
         
         # Interactive table
         st.markdown("---")
@@ -265,7 +265,7 @@ try:
             
             st.dataframe(
                 display_df,
-                use_container_width=True,
+                width='stretch',
                 height=400
             )
             
