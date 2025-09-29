@@ -5,7 +5,7 @@ import locale
 import os
 
 def load_and_process_data():
-    """Load and process the credit proposals CSV data"""
+    """Load and process the credit proposals CSV data with enhanced error handling"""
     
     # Try to set locale for currency formatting (fallback to default if not available)
     try:
@@ -20,35 +20,84 @@ def load_and_process_data():
     csv_path = "attached_assets/lista_propostas_S670.csv"
     
     if not os.path.exists(csv_path):
-        raise FileNotFoundError("Arquivo CSV não encontrado. Verifique se 'attached_assets/lista_propostas_S670.csv' existe.")
+        raise FileNotFoundError(f"Arquivo CSV não encontrado: {csv_path}")
     
-    # Read CSV with proper encoding
-    try:
-        df = pd.read_csv(csv_path, encoding='utf-8', sep=';')
-    except UnicodeDecodeError:
+    # Read CSV with proper encoding - try multiple encodings
+    encodings_to_try = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
+    df = None
+    
+    for encoding in encodings_to_try:
         try:
-            df = pd.read_csv(csv_path, encoding='latin-1', sep=';')
-        except:
-            df = pd.read_csv(csv_path, encoding='cp1252', sep=';')
+            df = pd.read_csv(csv_path, encoding=encoding, sep=';')
+            break
+        except UnicodeDecodeError:
+            continue
+        except Exception as e:
+            if encoding == encodings_to_try[-1]:  # Last encoding to try
+                raise e
+            continue
+    
+    if df is None:
+        raise ValueError("Não foi possível ler o arquivo CSV com nenhum dos encodings testados")
+    
+    # Validate that we have data
+    if df.empty:
+        raise pd.errors.EmptyDataError("O arquivo CSV está vazio")
     
     # Clean column names (remove BOM if present)
-    df.columns = df.columns.str.replace('\ufeff', '')
+    df.columns = df.columns.str.replace('\ufeff', '').str.strip()
+    
+    # Validate required columns
+    required_columns = ['sicad', 'nomeCliente', 'nomeAgencia', 'valor']
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        raise ValueError(f"Colunas obrigatórias ausentes: {missing_columns}")
     
     # Convert valor to numeric, handling different decimal separators
     if 'valor' in df.columns:
-        df['valor'] = df['valor'].astype(str).str.replace(',', '.')
+        # Handle various formats: 1.234,56 or 1234.56 or 1234,56
+        df['valor'] = df['valor'].astype(str).str.replace('.', '', regex=False)  # Remove thousands separator
+        df['valor'] = df['valor'].str.replace(',', '.', regex=False)  # Replace decimal comma with dot
         df['valor'] = pd.to_numeric(df['valor'], errors='coerce')
+        
+        # Remove invalid values
+        df = df.dropna(subset=['valor'])
+        df = df[df['valor'] > 0]
     
-    # Convert date columns to datetime
+    # Convert date columns to datetime with multiple format attempts
     date_columns = ['dataCriacao', 'dataProjecao', 'dataSolicitacao', 'dataPriorizacao']
+    date_formats = [
+        '%d-%m-%Y %H:%M:%S',
+        '%d/%m/%Y %H:%M:%S',
+        '%Y-%m-%d %H:%M:%S',
+        '%d-%m-%Y',
+        '%d/%m/%Y',
+        '%Y-%m-%d'
+    ]
+    
     for col in date_columns:
         if col in df.columns:
-            # Handle different date formats
-            df[col] = pd.to_datetime(df[col], format='%d-%m-%Y %H:%M:%S', errors='coerce')
-            if df[col].isna().all():
-                df[col] = pd.to_datetime(df[col], errors='coerce')
+            df[col] = df[col].astype(str)
+            parsed_dates = None
+            
+            for date_format in date_formats:
+                try:
+                    parsed_dates = pd.to_datetime(df[col], format=date_format, errors='coerce')
+                    if not parsed_dates.isna().all():
+                        break
+                except:
+                    continue
+            
+            if parsed_dates is None or parsed_dates.isna().all():
+                # Try pandas automatic parsing as last resort
+                try:
+                    parsed_dates = pd.to_datetime(df[col], errors='coerce', dayfirst=True)
+                except:
+                    parsed_dates = pd.NaT
+            
+            df[col] = parsed_dates
     
-    # Convert numeric columns
+    # Convert numeric columns with better error handling
     numeric_columns = [
         'diasTarefa', 'totalDiasAgencia', 'totalDiasCentral', 
         'totalDiasComite', 'totalDiasGeral', 'codigoSuperEstadual'
@@ -56,9 +105,14 @@ def load_and_process_data():
     
     for col in numeric_columns:
         if col in df.columns:
+            # Handle various numeric formats
+            df[col] = df[col].astype(str).str.replace(',', '.', regex=False)
             df[col] = pd.to_numeric(df[col], errors='coerce')
+            # Fill negative or invalid days with 0
+            if 'Dias' in col:
+                df[col] = df[col].fillna(0).clip(lower=0)
     
-    # Clean text columns
+    # Clean text columns with better handling
     text_columns = [
         'nomeCliente', 'nomeAgencia', 'tarefa', 'agenciaCentral',
         'programaCredito', 'acompanhamento', 'nomeCentral', 'statusPrioridade',
@@ -68,20 +122,46 @@ def load_and_process_data():
     for col in text_columns:
         if col in df.columns:
             df[col] = df[col].astype(str).str.strip()
-            df[col] = df[col].replace('nan', pd.NA)
+            df[col] = df[col].replace(['nan', 'None', 'null', ''], pd.NA)
+            # Clean extra whitespaces
+            df[col] = df[col].str.replace(r'\s+', ' ', regex=True)
     
-    # Remove rows with invalid or zero values
-    df = df[df['valor'] > 0]
+    # Remove completely invalid rows
+    df = df.dropna(subset=['sicad', 'nomeCliente', 'valor'])
     
     # Add derived columns
     if 'dataCriacao' in df.columns and not df['dataCriacao'].isna().all():
         df['mesAno'] = df['dataCriacao'].dt.to_period('M')
         df['ano'] = df['dataCriacao'].dt.year
         df['mes'] = df['dataCriacao'].dt.month
+        df['diaSemana'] = df['dataCriacao'].dt.dayofweek
+        df['nomeDiaSemana'] = df['dataCriacao'].dt.strftime('%A')
     
     # Clean manager names (extract only the name part before the code)
     if 'gerenteResponsavel' in df.columns:
-        df['gerenteNome'] = df['gerenteResponsavel'].str.split(' - ').str[0]
+        df['gerenteNome'] = df['gerenteResponsavel'].str.split(' - ').str[0].str.title()
+    
+    # Add performance categories
+    if 'totalDiasGeral' in df.columns and not df['totalDiasGeral'].isna().all():
+        df['categoriaPerformance'] = pd.cut(
+            df['totalDiasGeral'],
+            bins=[0, 30, 60, 90, float('inf')],
+            labels=['Rápido', 'Normal', 'Lento', 'Muito Lento'],
+            include_lowest=True
+        )
+    
+    # Add value categories
+    if 'valor' in df.columns:
+        df['categoriaValor'] = pd.cut(
+            df['valor'],
+            bins=[0, 100000, 1000000, 10000000, float('inf')],
+            labels=['Baixo', 'Médio', 'Alto', 'Muito Alto'],
+            include_lowest=True
+        )
+    
+    # Final validation
+    if len(df) == 0:
+        raise ValueError("Nenhum registro válido encontrado após processamento dos dados")
     
     return df
 

@@ -6,7 +6,14 @@ from plotly.subplots import make_subplots
 import numpy as np
 import os
 from datetime import datetime, timedelta
+import time
 from utils import load_and_process_data, format_currency, format_number, generate_pdf_report
+from enhanced_utils import (
+    create_sankey_diagram, create_treemap, create_gauge_chart,
+    advanced_filters_sidebar, apply_advanced_filters, paginate_dataframe,
+    export_to_excel_enhanced, create_benchmark_metrics, show_alerts_and_insights,
+    auto_refresh_data, create_advanced_pdf_report, validate_data_quality
+)
 
 # Configure page
 st.set_page_config(
@@ -16,38 +23,117 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Title
-st.title("📊 Dashboard de Propostas de Crédito")
+# Custom CSS for better styling
+st.markdown("""
+<style>
+    .main > div {
+        padding-top: 1rem;
+    }
+    .stMetric > div > div > div > div {
+        font-size: 1rem;
+    }
+    .reportview-container .main .block-container {
+        padding-top: 1rem;
+    }
+    .stAlert > div {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+    .sidebar .sidebar-content {
+        width: 300px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Title with enhanced styling
+st.markdown("""
+# 📊 Dashboard de Propostas de Crédito
+### *Análise Avançada e Business Intelligence*
+""")
+
+# Auto-refresh functionality
+refresh_triggered = auto_refresh_data()
+
 st.markdown("---")
 
-# Load data
-@st.cache_data
+# Load data with enhanced caching
+@st.cache_data(ttl=300, show_spinner=True)  # Cache for 5 minutes
 def load_data():
-    return load_and_process_data()
+    """Load data with enhanced error handling and validation"""
+    try:
+        df = load_and_process_data()
+        
+        # Validate data quality
+        with st.expander("📋 Relatório de Qualidade dos Dados", expanded=False):
+            quality_report = validate_data_quality(df)
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Total de Registros", quality_report['total_records'])
+                st.metric("Duplicatas", quality_report['duplicates'])
+            
+            with col2:
+                missing_cols = len(quality_report['missing_values'])
+                st.metric("Colunas com Dados Faltantes", missing_cols)
+                outlier_cols = len(quality_report['outliers'])
+                st.metric("Colunas com Outliers", outlier_cols)
+            
+            with col3:
+                if quality_report['recommendations']:
+                    st.warning("⚠️ Recomendações:")
+                    for rec in quality_report['recommendations']:
+                        st.write(f"• {rec}")
+        
+        return df
+        
+    except Exception as e:
+        st.error(f"❌ Erro ao carregar dados: {str(e)}")
+        st.info("💡 Dicas para resolver:")
+        st.write("• Verifique se o arquivo CSV existe na pasta 'attached_assets'")
+        st.write("• Confirme se o formato do arquivo está correto")
+        st.write("• Tente recarregar a página")
+        return pd.DataFrame()
 
 try:
     df = load_data()
     
-    # Sidebar filters
-    st.sidebar.header("🔍 Filtros")
+    if df.empty:
+        st.stop()
     
-    # Agency filter
+    # Sidebar filters with enhanced options
+    st.sidebar.header("🔍 Filtros Básicos")
+    
+    # Basic filters
     agencies = ['Todos'] + sorted(df['nomeAgencia'].dropna().unique().tolist())
-    selected_agency = st.sidebar.selectbox("Agência", agencies)
+    selected_agency = st.sidebar.selectbox(
+        "Agência", 
+        agencies,
+        help="Selecione uma agência específica ou 'Todos' para ver todas"
+    )
     
-    # Business portfolio filter
     portfolios = ['Todos'] + sorted(df['carteiraNegocio'].dropna().unique().tolist())
-    selected_portfolio = st.sidebar.selectbox("Carteira de Negócio", portfolios)
+    selected_portfolio = st.sidebar.selectbox(
+        "Carteira de Negócio", 
+        portfolios,
+        help="Filtre por carteira de negócio específica"
+    )
     
-    # Status filter
     status_list = ['Todos'] + sorted(df['statusPrioridade'].dropna().unique().tolist())
-    selected_status = st.sidebar.selectbox("Status", status_list)
+    selected_status = st.sidebar.selectbox(
+        "Status", 
+        status_list,
+        help="Filtre por status da proposta"
+    )
     
-    # Manager filter
     managers = ['Todos'] + sorted(df['gerenteResponsavel'].dropna().unique().tolist())
-    selected_manager = st.sidebar.selectbox("Gerente", managers)
+    selected_manager = st.sidebar.selectbox(
+        "Gerente", 
+        managers,
+        help="Selecione um gerente específico"
+    )
     
-    # Date range filter
+    # Date range filter with better handling
     if not df['dataCriacao'].isna().all():
         min_date = df['dataCriacao'].min().date()
         max_date = df['dataCriacao'].max().date()
@@ -56,10 +142,15 @@ try:
             "Período de Criação",
             value=(min_date, max_date),
             min_value=min_date,
-            max_value=max_date
+            max_value=max_date,
+            help="Selecione o período de análise"
         )
     
-    # Apply filters
+    # Advanced filters
+    st.sidebar.markdown("---")
+    advanced_filters = advanced_filters_sidebar(df)
+    
+    # Apply basic filters
     filtered_df = df.copy()
     
     if selected_agency != 'Todos':
@@ -80,6 +171,13 @@ try:
             (filtered_df['dataCriacao'].dt.date >= start_date) & 
             (filtered_df['dataCriacao'].dt.date <= end_date)
         ]
+    
+    # Apply advanced filters
+    filtered_df = apply_advanced_filters(filtered_df, advanced_filters)
+    
+    # Calculate benchmarks and show alerts
+    benchmarks = create_benchmark_metrics(filtered_df)
+    show_alerts_and_insights(filtered_df, benchmarks)
     
     # Portfolio-specific dashboard option
     portfolio_view = st.sidebar.checkbox("🎯 Dashboard por Carteira", help="Exibir análises específicas por carteira de negócio")
@@ -215,36 +313,102 @@ try:
         
         st.markdown("---")
         
-        # Charts section
+        # Charts section with enhanced visualizations
         if len(filtered_df) > 0:
             # Row 1: Value by Agency and Portfolio Distribution
             col1, col2 = st.columns(2)
         
-        with col1:
-            st.subheader("💰 Valores por Agência")
-            agency_values = filtered_df.groupby('nomeAgencia')['valor'].sum().sort_values(ascending=False).head(10)
+            with col1:
+                st.subheader("💰 Valores por Agência")
+                agency_values = filtered_df.groupby('nomeAgencia')['valor'].sum().sort_values(ascending=False).head(10)
+                
+                fig_agency = px.bar(
+                    x=agency_values.values,
+                    y=agency_values.index,
+                    orientation='h',
+                    labels={'x': 'Valor (R$)', 'y': 'Agência'},
+                    title="Top 10 Agências por Valor"
+                )
+                fig_agency.update_layout(height=400)
+                st.plotly_chart(fig_agency, use_container_width=True)
             
-            fig_agency = px.bar(
-                x=agency_values.values,
-                y=agency_values.index,
-                orientation='h',
-                labels={'x': 'Valor (R$)', 'y': 'Agência'},
-                title="Top 10 Agências por Valor"
-            )
-            fig_agency.update_layout(height=400)
-            st.plotly_chart(fig_agency, use_container_width=True)
-        
-        with col2:
-            st.subheader("🥧 Distribuição por Carteira")
-            portfolio_dist = filtered_df['carteiraNegocio'].value_counts()
+            with col2:
+                st.subheader("🥧 Distribuição por Carteira")
+                portfolio_dist = filtered_df['carteiraNegocio'].value_counts()
+                
+                fig_portfolio = px.pie(
+                    values=portfolio_dist.values,
+                    names=portfolio_dist.index,
+                    title="Distribuição por Carteira de Negócio"
+                )
+                fig_portfolio.update_layout(height=400)
+                st.plotly_chart(fig_portfolio, use_container_width=True)
             
-            fig_portfolio = px.pie(
-                values=portfolio_dist.values,
-                names=portfolio_dist.index,
-                title="Distribuição por Carteira de Negócio"
-            )
-            fig_portfolio.update_layout(height=400)
-            st.plotly_chart(fig_portfolio, use_container_width=True)
+            # Row 1.5: Advanced Visualizations
+            st.markdown("---")
+            st.subheader("📊 Visualizações Avançadas")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Sankey Diagram
+                sankey_fig = create_sankey_diagram(filtered_df)
+                if sankey_fig:
+                    st.plotly_chart(sankey_fig, use_container_width=True)
+            
+            with col2:
+                # Treemap
+                treemap_fig = create_treemap(filtered_df)
+                if treemap_fig:
+                    st.plotly_chart(treemap_fig, use_container_width=True)
+            
+            # Row 2: Performance Gauges
+            st.markdown("---")
+            st.subheader("🎯 Indicadores de Performance")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                avg_days = filtered_df['totalDiasGeral'].mean()
+                max_days = filtered_df['totalDiasGeral'].max()
+                gauge_days = create_gauge_chart(
+                    avg_days, 
+                    "Prazo Médio (dias)", 
+                    max_days,
+                    thresholds=[0.3, 0.6, 0.8]
+                )
+                st.plotly_chart(gauge_days, use_container_width=True)
+            
+            with col2:
+                efficiency_score = (len(filtered_df[filtered_df['totalDiasGeral'] < benchmarks.get('good_days', float('inf'))]) / len(filtered_df)) * 100
+                gauge_efficiency = create_gauge_chart(
+                    efficiency_score,
+                    "Eficiência (%)",
+                    100,
+                    thresholds=[0.4, 0.7, 0.9]
+                )
+                st.plotly_chart(gauge_efficiency, use_container_width=True)
+            
+            with col3:
+                portfolio_diversity = filtered_df['carteiraNegocio'].nunique()
+                max_diversity = df['carteiraNegocio'].nunique()
+                gauge_diversity = create_gauge_chart(
+                    portfolio_diversity,
+                    "Diversidade de Carteiras",
+                    max_diversity,
+                    thresholds=[0.3, 0.6, 0.9]
+                )
+                st.plotly_chart(gauge_diversity, use_container_width=True)
+            
+            with col4:
+                value_concentration = (filtered_df['valor'].max() / filtered_df['valor'].sum()) * 100
+                gauge_concentration = create_gauge_chart(
+                    100 - value_concentration,  # Inverted to show distribution
+                    "Distribuição de Valores (%)",
+                    100,
+                    thresholds=[0.3, 0.6, 0.8]
+                )
+                st.plotly_chart(gauge_concentration, use_container_width=True)
         
         # Row 2: Managers and Timeline
         col1, col2 = st.columns(2)
@@ -676,9 +840,9 @@ try:
         else:
             st.info("Dados de gerentes não disponíveis para análise de performance.")
         
-        # Interactive table
+        # Interactive table with pagination
         st.markdown("---")
-        st.subheader("📋 Tabela Interativa")
+        st.subheader("📋 Tabela Interativa com Paginação")
         
         # Column selection for table
         available_columns = [
@@ -688,11 +852,23 @@ try:
             'gerenteResponsavel', 'totalDiasGeral'
         ]
         
-        selected_columns = st.multiselect(
-            "Selecione as colunas para exibir:",
-            available_columns,
-            default=['sicad', 'nomeCliente', 'nomeAgencia', 'valor', 'carteiraNegocio', 'statusPrioridade']
-        )
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            selected_columns = st.multiselect(
+                "Selecione as colunas para exibir:",
+                available_columns,
+                default=['sicad', 'nomeCliente', 'nomeAgencia', 'valor', 'carteiraNegocio', 'statusPrioridade'],
+                help="Escolha quais colunas deseja visualizar na tabela"
+            )
+        
+        with col2:
+            page_size = st.selectbox(
+                "Registros por página:",
+                [10, 20, 50, 100],
+                index=1,
+                help="Número de registros a exibir por página"
+            )
         
         if selected_columns:
             display_df = filtered_df[selected_columns].copy()
@@ -707,30 +883,60 @@ try:
                 if col in selected_columns and col in display_df.columns:
                     display_df[col] = display_df[col].dt.strftime('%d/%m/%Y %H:%M')
             
-            st.dataframe(
-                display_df,
-                use_container_width=True,
-                height=400
+            # Add search functionality
+            search_term = st.text_input(
+                "🔍 Buscar na tabela:",
+                placeholder="Digite qualquer termo para buscar...",
+                help="Busca em todas as colunas visíveis"
             )
             
-            # Download buttons
-            col1, col2 = st.columns(2)
+            if search_term:
+                # Search across all visible columns
+                mask = display_df.astype(str).apply(
+                    lambda x: x.str.lower().str.contains(search_term.lower(), na=False)
+                ).any(axis=1)
+                display_df = display_df[mask]
+            
+            # Show total results
+            st.info(f"📊 Exibindo {len(display_df)} de {len(filtered_df)} registros")
+            
+            # Pagination
+            paginated_df, start_idx, end_idx = paginate_dataframe(display_df, page_size)
+            
+            if len(paginated_df) > 0:
+                st.dataframe(
+                    paginated_df,
+                    use_container_width=True,
+                    height=400
+                )
+                
+                # Pagination info
+                st.caption(f"Mostrando registros {start_idx + 1} a {end_idx} de {len(display_df)}")
+            else:
+                st.warning("🔍 Nenhum registro encontrado com os critérios de busca.")
+            
+            # Enhanced export options
+            st.markdown("---")
+            st.subheader("📥 Opções de Exportação")
+            
+            col1, col2, col3 = st.columns(3)
             
             with col1:
+                # CSV Export
                 csv = filtered_df.to_csv(index=False)
                 st.download_button(
-                    label="📥 Baixar dados (CSV)",
+                    label="📄 Baixar CSV",
                     data=csv,
-                    file_name=f"propostas_credito_filtradas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv"
+                    file_name=f"propostas_credito_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    help="Download dos dados filtrados em formato CSV"
                 )
             
             with col2:
-                # PDF Report Generation
-                if st.button("📄 Gerar Relatório PDF"):
-                    with st.spinner("Gerando relatório PDF..."):
+                # Enhanced Excel Export
+                if st.button("📊 Gerar Excel Avançado", help="Excel com múltiplas abas e análises"):
+                    with st.spinner("Gerando Excel avançado..."):
                         try:
-                            # Prepare filter information
                             filters_applied = {
                                 'Agência': selected_agency,
                                 'Carteira': selected_portfolio,
@@ -738,23 +944,46 @@ try:
                                 'Gerente': selected_manager
                             }
                             
-                            # Generate PDF
-                            pdf_filename = f"relatorio_propostas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-                            pdf_path = generate_pdf_report(filtered_df, filters_applied, pdf_filename)
+                            excel_data = export_to_excel_enhanced(filtered_df, filters_applied)
+                            
+                            if excel_data:
+                                st.download_button(
+                                    label="📥 Download Excel",
+                                    data=excel_data,
+                                    file_name=f"relatorio_completo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                )
+                                st.success("✅ Excel avançado gerado!")
+                        except Exception as e:
+                            st.error(f"❌ Erro ao gerar Excel: {str(e)}")
+            
+            with col3:
+                # Enhanced PDF Report
+                if st.button("📄 Relatório PDF Avançado", help="Relatório PDF com gráficos e análises"):
+                    with st.spinner("Gerando relatório PDF avançado..."):
+                        try:
+                            filters_applied = {
+                                'Agência': selected_agency,
+                                'Carteira': selected_portfolio,
+                                'Status': selected_status,
+                                'Gerente': selected_manager
+                            }
+                            
+                            pdf_filename = f"relatorio_avancado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                            pdf_path = create_advanced_pdf_report(filtered_df, filters_applied, pdf_filename)
                             
                             # Read the PDF file
                             with open(pdf_path, "rb") as pdf_file:
                                 pdf_bytes = pdf_file.read()
                             
-                            # Offer download
                             st.download_button(
-                                label="📥 Download Relatório PDF",
+                                label="📥 Download PDF",
                                 data=pdf_bytes,
                                 file_name=pdf_filename,
                                 mime="application/pdf"
                             )
                             
-                            st.success("✅ Relatório PDF gerado com sucesso!")
+                            st.success("✅ Relatório PDF avançado gerado!")
                             
                             # Clean up
                             try:
@@ -763,24 +992,81 @@ try:
                                 pass
                                 
                         except Exception as e:
-                            st.error(f"❌ Erro ao gerar relatório PDF: {str(e)}")
-                            st.info("Tente novamente ou verifique se há dados suficientes.")
+                            st.error(f"❌ Erro ao gerar PDF: {str(e)}")
+                            st.info("💡 Verifique se há dados suficientes e tente novamente.")
         
         else:
             st.warning("⚠️ Nenhuma proposta encontrada com os filtros aplicados.")
-            st.info("Tente ajustar os filtros para ver os dados.")
+            st.info("💡 **Sugestões:**")
+            st.write("• Tente ajustar os filtros para ampliar a busca")
+            st.write("• Verifique se as datas selecionadas estão corretas")
+            st.write("• Experimente remover alguns filtros avançados")
+            
+            # Show summary of available data
+            st.subheader("📊 Resumo dos Dados Disponíveis")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Total de Registros", len(df))
+                st.metric("Agências Disponíveis", df['nomeAgencia'].nunique())
+            
+            with col2:
+                st.metric("Carteiras Disponíveis", df['carteiraNegocio'].nunique())
+                st.metric("Gerentes Ativos", df['gerenteResponsavel'].nunique())
+            
+            with col3:
+                if not df['dataCriacao'].isna().all():
+                    date_range_available = f"{df['dataCriacao'].min().strftime('%d/%m/%Y')} - {df['dataCriacao'].max().strftime('%d/%m/%Y')}"
+                    st.metric("Período Disponível", date_range_available)
 
+except FileNotFoundError:
+    st.error("❌ **Arquivo de dados não encontrado!**")
+    st.info("💡 **Instruções para resolver:**")
+    st.write("1. Verifique se o arquivo `lista_propostas_S670.csv` existe na pasta `attached_assets/`")
+    st.write("2. Confirme se o nome do arquivo está correto")
+    st.write("3. Se necessário, faça upload do arquivo na pasta correta")
+    
+except pd.errors.EmptyDataError:
+    st.error("❌ **Arquivo de dados está vazio!**")
+    st.info("💡 Verifique se o arquivo CSV contém dados válidos")
+    
+except pd.errors.ParserError as e:
+    st.error("❌ **Erro ao processar o arquivo CSV!**")
+    st.info(f"💡 Detalhes do erro: {str(e)}")
+    st.write("**Possíveis soluções:**")
+    st.write("• Verifique se o separador usado é ';' (ponto e vírgula)")
+    st.write("• Confirme se o encoding do arquivo está correto (UTF-8 ou Latin-1)")
+    st.write("• Verifique se há caracteres especiais mal formatados")
+    
 except Exception as e:
-    st.error(f"❌ Erro ao carregar os dados: {str(e)}")
-    st.info("Verifique se o arquivo CSV está no formato correto e tente novamente.")
+    st.error(f"❌ **Erro inesperado:** {str(e)}")
+    st.info("💡 **Suporte técnico:**")
+    st.write("• Tente recarregar a página")
+    st.write("• Verifique sua conexão com a internet")
+    st.write("• Se o problema persistir, contate o administrador do sistema")
+    
+    # Debug information for developers
+    with st.expander("🔧 Informações de Debug (Desenvolvedores)", expanded=False):
+        st.code(f"""
+        Erro: {type(e).__name__}
+        Mensagem: {str(e)}
+        Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        """)
 
-# Footer
+# Footer with enhanced information
 st.markdown("---")
 st.markdown(
     """
-    <div style='text-align: center; color: #666;'>
-        Dashboard de Propostas de Crédito | Desenvolvido com Streamlit
+    <div style='text-align: center; color: #666; padding: 20px;'>
+        <h4>📊 Dashboard de Propostas de Crédito</h4>
+        <p>Sistema avançado de Business Intelligence para análise de propostas bancárias</p>
+        <p><strong>Versão:</strong> 2.0 Enhanced | <strong>Última atualização:</strong> {}</p>
+        <p>Desenvolvido com ❤️ usando <a href="https://streamlit.io" target="_blank">Streamlit</a>, 
+        <a href="https://plotly.com" target="_blank">Plotly</a> e 
+        <a href="https://pandas.pydata.org" target="_blank">Pandas</a></p>
+        <hr style="width: 50%; margin: 20px auto;">
+        <p><small>💡 Para suporte técnico ou sugestões, consulte a documentação no README.md</small></p>
     </div>
-    """,
+    """.format(datetime.now().strftime('%d/%m/%Y')),
     unsafe_allow_html=True
 )
