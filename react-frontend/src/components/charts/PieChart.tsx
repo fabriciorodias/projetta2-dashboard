@@ -1,6 +1,4 @@
-import React from 'react'
-import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
-import { motion } from 'framer-motion'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
 
 interface ChartDataPoint {
   name: string
@@ -10,121 +8,122 @@ interface ChartDataPoint {
 
 interface PieChartProps {
   data: ChartDataPoint[]
+  title?: string
+  colors?: string[]
   height?: number
-  className?: string
   showLegend?: boolean
 }
 
-const PieChart: React.FC<PieChartProps> = ({ 
-  data, 
-  height = 300, 
-  className = '',
-  showLegend = true
-}) => {
-  const COLORS = [
-    '#3B82F6', // blue-500
-    '#10B981', // green-500
-    '#F59E0B', // yellow-500
-    '#EF4444', // red-500
-    '#8B5CF6', // purple-500
-    '#EC4899', // pink-500
-    '#6B7280', // gray-500
-    '#F97316', // orange-500
-  ]
+const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4']
 
-  const processedData = data.map((item, index) => ({
+const PieChartComponent = ({ 
+  data, 
+  title, 
+  colors = COLORS, 
+  height = 300,
+  showLegend = true 
+}: PieChartProps) => {
+  const dataWithColors = data.map((item, index) => ({
     ...item,
-    color: item.color || COLORS[index % COLORS.length]
+    color: colors[index % colors.length]
   }))
 
-  // Custom tooltip
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
+      const data = payload[0]
       return (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-400 rounded-lg shadow-lg p-3"
-        >
-          <p className="font-medium text-gray-900 dark:text-gray-100 mb-1">
-            {payload[0].name}
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
+          <p className="font-medium text-gray-900 dark:text-gray-100">{data.name}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Valor: <span className="font-medium">{data.value}</span>
           </p>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            <span className="font-medium">
-              {typeof payload[0].value === 'number' && payload[0].value > 1000
-                ? new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL',
-                  }).format(payload[0].value)
-                : payload[0].value.toLocaleString('pt-BR')}
-            </span>
-            {' ('}
-            <span className="font-medium">
-              {payload[0].percent?.toFixed(1)}%
-            </span>
-            {')'}
+            Percentual: <span className="font-medium">{((data.value / data.payload.total) * 100).toFixed(1)}%</span>
           </p>
-        </motion.div>
+        </div>
       )
     }
     return null
   }
 
-  // Custom legend
-  const CustomLegend = ({ payload }: any) => {
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
+    if (percent < 0.05) return null // Hide labels for slices < 5%
+    
+    const RADIAN = Math.PI / 180
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5
+    const x = cx + radius * Math.cos(-midAngle * RADIAN)
+    const y = cy + radius * Math.sin(-midAngle * RADIAN)
+
     return (
-      <div className="flex flex-wrap justify-center gap-4 mt-4">
-        {payload.map((entry: any, index: number) => (
-          <div key={index} className="flex items-center space-x-2">
-            <div
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: entry.color }}
-            />
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              {entry.value}
-            </span>
-          </div>
-        ))}
-      </div>
+      <text 
+        x={x} 
+        y={y} 
+        fill="white" 
+        textAnchor={x > cx ? 'start' : 'end'} 
+        dominantBaseline="central"
+        fontSize={12}
+        fontWeight="500"
+      >
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
     )
   }
 
+  const total = data.reduce((sum, item) => sum + item.value, 0)
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
-      className={`w-full ${className}`}
-      style={{ height }}
-    >
-      <ResponsiveContainer width="100%" height="100%">
-        <RechartsPieChart>
+    <div className="w-full">
+      {title && (
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+          {title}
+        </h3>
+      )}
+      
+      <ResponsiveContainer width="100%" height={height}>
+        <PieChart>
           <Pie
-            data={processedData}
+            data={dataWithColors.map(item => ({ ...item, total }))}
             cx="50%"
             cy="50%"
             labelLine={false}
-            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+            label={renderCustomizedLabel}
             outerRadius={80}
-            innerRadius={40}
             fill="#8884d8"
             dataKey="value"
-            strokeWidth={2}
-            stroke="#ffffff"
           >
-            {processedData.map((entry, index) => (
+            {dataWithColors.map((entry, index) => (
               <Cell 
                 key={`cell-${index}`} 
-                fill={entry.color}
+                fill={entry.color} 
               />
             ))}
           </Pie>
           <Tooltip content={<CustomTooltip />} />
-          {showLegend && <Legend content={<CustomLegend />} />}
-        </RechartsPieChart>
+          {showLegend && (
+            <Legend 
+              verticalAlign="bottom" 
+              height={36}
+              formatter={(value: string) => (
+                <span className="text-gray-600 dark:text-gray-400 text-sm">{value}</span>
+              )}
+            />
+          )}
+        </PieChart>
       </ResponsiveContainer>
-    </motion.div>
+
+      {/* Data summary */}
+      <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+          <div className="text-gray-600 dark:text-gray-400">Total de Registros</div>
+          <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">{total}</div>
+        </div>
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+          <div className="text-gray-600 dark:text-gray-400">Categorias</div>
+          <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">{data.length}</div>
+        </div>
+      </div>
+    </div>
   )
 }
 
-export default PieChart
+export default PieChartComponent

@@ -1,109 +1,105 @@
-import React from 'react'
-import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { motion } from 'framer-motion'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
 interface ChartDataPoint {
-  date: string
-  count: number
-  value_sum: number
+  name: string
+  [key: string]: string | number
 }
 
 interface LineChartProps {
   data: ChartDataPoint[]
+  title?: string
+  dataKey: string
+  lines?: {
+    dataKey: string
+    name: string
+    color: string
+    strokeWidth?: number
+  }[]
   height?: number
-  color?: string
-  className?: string
+  showLegend?: boolean
 }
 
-const LineChart: React.FC<LineChartProps> = ({ 
+const LineChartComponent = ({ 
   data, 
-  height = 300, 
-  color = '#3B82F6',
-  className = ''
-}) => {
-  // Custom tooltip
+  title, 
+  dataKey,
+  lines = [{ dataKey, name: dataKey, color: '#3b82f6' }],
+  height = 300,
+  showLegend = false 
+}: LineChartProps) => {
+  
+  const formatValue = (value: number) => {
+    if (value >= 1000000) {
+      return `${(value / 1000000).toFixed(1)}M`
+    } else if (value >= 1000) {
+      return `${(value / 1000).toFixed(1)}K`
+    }
+    return value.toString()
+  }
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3"
-        >
-          <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">{label}</p>
-          <div className="space-y-1">
-            <p className="text-sm">
-              <span className="text-gray-500 dark:text-gray-400">Propostas: </span>
-              <span className="font-medium text-gray-900 dark:text-gray-100">
-                {payload[0].value.toLocaleString('pt-BR')}
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
+          <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex items-center space-x-2">
+              <div 
+                className="w-3 h-3 rounded-full" 
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                {entry.name}: <span className="font-medium">{entry.value}</span>
               </span>
-            </p>
-            <p className="text-sm">
-              <span className="text-gray-500 dark:text-gray-400">Valor: </span>
-              <span className="font-medium text-gray-900 dark:text-gray-100">
-                {new Intl.NumberFormat('pt-BR', {
-                  style: 'currency',
-                  currency: 'BRL',
-                }).format(payload[1].value)}
-              </span>
-            </p>
-          </div>
-        </motion.div>
+            </div>
+          ))}
+        </div>
       )
     }
     return null
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
-      className={`w-full ${className}`}
-      style={{ height }}
-    >
-      <ResponsiveContainer width="100%" height="100%">
-        <RechartsLineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+    <div className="w-full">
+      {title && (
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+          {title}
+        </h3>
+      )}
+      
+      <ResponsiveContainer width="100%" height={height}>
+        <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
           <XAxis 
-            dataKey="date" 
-            stroke="#6B7280"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
+            dataKey="name" 
+            tick={{ fontSize: 12 }}
+            tickLine={{ stroke: '#9ca3af' }}
+            axisLine={{ stroke: '#9ca3af' }}
           />
           <YAxis 
-            stroke="#6B7280"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
+            tick={{ fontSize: 12 }}
+            tickLine={{ stroke: '#9ca3af' }}
+            axisLine={{ stroke: '#9ca3af' }}
+            tickFormatter={formatValue}
           />
           <Tooltip content={<CustomTooltip />} />
-          
-          {/* Count Line */}
-          <Line
-            type="monotone"
-            dataKey="count"
-            stroke={color}
-            strokeWidth={2}
-            dot={{ fill: color, strokeWidth: 2, r: 4 }}
-            activeDot={{ r: 6, stroke: color, strokeWidth: 2 }}
-          />
-          
-          {/* Value Line */}
-          <Line
-            type="monotone"
-            dataKey="value_sum"
-            stroke="#10B981"
-            strokeWidth={2}
-            dot={{ fill: "#10B981", strokeWidth: 2, r: 4 }}
-            activeDot={{ r: 6, stroke: "#10B981", strokeWidth: 2 }}
-            yAxisId="value"
-          />
-        </RechartsLineChart>
+          {showLegend && <Legend />}
+          {lines.map((line, index) => (
+            <Line 
+              key={index}
+              type="monotone" 
+              dataKey={line.dataKey} 
+              stroke={line.color}
+              strokeWidth={line.strokeWidth || 2}
+              name={line.name}
+              dot={{ r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+          ))}
+        </LineChart>
       </ResponsiveContainer>
-    </motion.div>
+    </div>
   )
 }
 
-export default LineChart
+export default LineChartComponent

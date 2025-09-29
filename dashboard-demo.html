@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Dashboard Projetta2 - React Demo</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            margin: 0;
+            background: #f9fafb;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        .loading {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+        
+        // Dados de exemplo (mesmos do projeto React)
+        const sampleData = [
+            {
+                sicad: 17476127,
+                nomeCliente: "PROLOG EMPREENDIMENTOS LTDA",
+                nomeAgencia: "Salvador Costa Azul",
+                valor: 223300000,
+                tarefa: "Resolver Ocorrências de Instrumento",
+                totalDiasGeral: 59,
+                carteiraNegocio: "CORPORATE",
+                gerenteResponsavel: "ROSEMARY SILVA SANTOS DE BRAGA - F80667",
+                statusPrioridade: "ATIVA",
+                dataCriacao: new Date("2025-06-06")
+            },
+            {
+                sicad: 2682541,
+                nomeCliente: "JOAO ANTONIO FRANCIOSI",
+                nomeAgencia: "Luis Eduardo Magalhaes",
+                valor: 200150000,
+                tarefa: "Registrar Resultado de Resolução das Ocorrências",
+                totalDiasGeral: 31,
+                carteiraNegocio: "AGRONEGÓCIO",
+                gerenteResponsavel: "ALINE GABRIELLA NOVAIS BRANDAO - F156728",
+                statusPrioridade: "EM ANÁLISE",
+                dataCriacao: new Date("2025-08-25")
+            },
+            {
+                sicad: 3570695,
+                nomeCliente: "LUIZ ANTONIO PRADELLA",
+                nomeAgencia: "Luis Eduardo Magalhaes",
+                valor: 125500000,
+                tarefa: "Registrar Ocorrências de Instrução",
+                totalDiasGeral: 32,
+                carteiraNegocio: "AGRONEGÓCIO",
+                gerenteResponsavel: "AMINE SANTOS MATA PIRES - F163910",
+                statusPrioridade: "EXPIRADA",
+                dataCriacao: new Date("2025-08-25")
+            }
+        ];
+
+        // Componentes
+        const MetricCard = ({ title, value, format, icon, color = "blue" }) => {
+            const formatValue = (val) => {
+                if (format === 'currency') {
+                    return new Intl.NumberFormat('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL'
+                    }).format(val);
+                }
+                if (format === 'number') {
+                    return new Intl.NumberFormat('pt-BR').format(val);
+                }
+                if (format === 'days') {
+                    return `${Math.round(val)} dia${val !== 1 ? 's' : ''}`;
+                }
+                return val;
+            };
+
+            const colorClasses = {
+                blue: 'border-blue-200 bg-blue-50 text-blue-900',
+                green: 'border-green-200 bg-green-50 text-green-900',
+                purple: 'border-purple-200 bg-purple-50 text-purple-900',
+                yellow: 'border-yellow-200 bg-yellow-50 text-yellow-900'
+            };
+
+            return (
+                <div className={`rounded-xl border-2 p-6 transition-all card-hover ${colorClasses[color]}`}>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium opacity-75">{title}</p>
+                            <p className="text-3xl font-bold mt-2">{formatValue(value)}</p>
+                        </div>
+                        <div className="text-4xl opacity-75">{icon}</div>
+                    </div>
+                </div>
+            );
+        };
+
+        const SimpleChart = ({ data, title, type = "bar" }) => {
+            const maxValue = Math.max(...data.map(d => d.value));
+            
+            return (
+                <div className="bg-white rounded-xl shadow-lg p-6">
+                    <h3 className="text-lg font-semibold mb-4 text-gray-800">{title}</h3>
+                    <div className="space-y-3">
+                        {data.map((item, index) => (
+                            <div key={index} className="flex items-center space-x-3">
+                                <div className="w-24 text-sm font-medium text-gray-600 truncate">
+                                    {item.name}
+                                </div>
+                                <div className="flex-1 bg-gray-200 rounded-full h-3 relative">
+                                    <div 
+                                        className={`h-3 rounded-full transition-all duration-1000 ease-out ${
+                                            index % 3 === 0 ? 'bg-blue-500' : 
+                                            index % 3 === 1 ? 'bg-green-500' : 'bg-purple-500'
+                                        }`}
+                                        style={{
+                                            width: `${(item.value / maxValue) * 100}%`
+                                        }}
+                                    />
+                                </div>
+                                <div className="w-20 text-sm font-semibold text-gray-800">
+                                    {item.format === 'currency' ? 
+                                        new Intl.NumberFormat('pt-BR', {
+                                            style: 'currency',
+                                            currency: 'BRL',
+                                            notation: 'compact'
+                                        }).format(item.value) :
+                                        item.value.toLocaleString('pt-BR')
+                                    }
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const Dashboard = () => {
+            const [filteredData, setFilteredData] = useState(sampleData);
+            const [filters, setFilters] = useState({
+                agencia: 'Todos',
+                carteira: 'Todos',
+                status: 'Todos'
+            });
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                // Simular carregamento
+                setTimeout(() => setLoading(false), 2000);
+            }, []);
+
+            // Cálculos das métricas
+            const metrics = useMemo(() => {
+                const total = filteredData.length;
+                const valorTotal = filteredData.reduce((sum, p) => sum + p.valor, 0);
+                const valorMedio = valorTotal / total || 0;
+                const prazoMedio = filteredData.reduce((sum, p) => sum + p.totalDiasGeral, 0) / total || 0;
+                
+                return { total, valorTotal, valorMedio, prazoMedio };
+            }, [filteredData]);
+
+            // Dados para gráficos
+            const agencyData = Object.values(
+                filteredData.reduce((acc, item) => {
+                    if (!acc[item.nomeAgencia]) {
+                        acc[item.nomeAgencia] = { name: item.nomeAgencia, value: 0, format: 'currency' };
+                    }
+                    acc[item.nomeAgencia].value += item.valor;
+                    return acc;
+                }, {})
+            ).sort((a, b) => b.value - a.value);
+
+            const portfolioData = Object.values(
+                filteredData.reduce((acc, item) => {
+                    if (!acc[item.carteiraNegocio]) {
+                        acc[item.carteiraNegocio] = { name: item.carteiraNegocio, value: 0 };
+                    }
+                    acc[item.carteiraNegocio].value += 1;
+                    return acc;
+                }, {})
+            );
+
+            // Aplicar filtros
+            useEffect(() => {
+                let filtered = sampleData;
+                
+                if (filters.agencia !== 'Todos') {
+                    filtered = filtered.filter(p => p.nomeAgencia === filters.agencia);
+                }
+                if (filters.carteira !== 'Todos') {
+                    filtered = filtered.filter(p => p.carteiraNegocio === filters.carteira);
+                }
+                if (filters.status !== 'Todos') {
+                    filtered = filtered.filter(p => p.statusPrioridade === filters.status);
+                }
+                
+                setFilteredData(filtered);
+            }, [filters]);
+
+            const agencias = ['Todos', ...Array.from(new Set(sampleData.map(p => p.nomeAgencia)))];
+            const carteiras = ['Todos', ...Array.from(new Set(sampleData.map(p => p.carteiraNegocio)))];
+            const status = ['Todos', ...Array.from(new Set(sampleData.map(p => p.statusPrioridade)))];
+
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center gradient-bg">
+                        <div className="text-center text-white">
+                            <div className="text-6xl mb-4">📊</div>
+                            <div className="text-2xl font-bold mb-2">Dashboard Projetta2</div>
+                            <div className="text-lg opacity-75 loading">Carregando dados...</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    {/* Header */}
+                    <header className="gradient-bg text-white shadow-lg">
+                        <div className="container mx-auto px-6 py-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h1 className="text-3xl font-bold flex items-center">
+                                        📊 Dashboard Projetta2
+                                    </h1>
+                                    <p className="text-lg opacity-90">Análise de Propostas de Crédito - React Demo</p>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-sm opacity-75">
+                                        {new Date().toLocaleString('pt-BR')}
+                                    </div>
+                                    <div className="text-lg font-semibold">
+                                        {filteredData.length} proposta{filteredData.length !== 1 ? 's' : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <div className="container mx-auto px-6 py-8">
+                        {/* Filtros */}
+                        <div className="mb-8">
+                            <div className="bg-white rounded-xl shadow-lg p-6">
+                                <h2 className="text-lg font-semibold mb-4 flex items-center">
+                                    🔍 Filtros Inteligentes
+                                </h2>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Agência
+                                        </label>
+                                        <select
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            value={filters.agencia}
+                                            onChange={(e) => setFilters({...filters, agencia: e.target.value})}
+                                        >
+                                            {agencias.map(ag => (
+                                                <option key={ag} value={ag}>{ag}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Carteira
+                                        </label>
+                                        <select
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            value={filters.carteira}
+                                            onChange={(e) => setFilters({...filters, carteira: e.target.value})}
+                                        >
+                                            {carteiras.map(cart => (
+                                                <option key={cart} value={cart}>{cart}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Status
+                                        </label>
+                                        <select
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            value={filters.status}
+                                            onChange={(e) => setFilters({...filters, status: e.target.value})}
+                                        >
+                                            {status.map(st => (
+                                                <option key={st} value={st}>{st}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Métricas */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                            <MetricCard
+                                title="Total de Propostas"
+                                value={metrics.total}
+                                format="number"
+                                icon="📊"
+                                color="blue"
+                            />
+                            <MetricCard
+                                title="Valor Total"
+                                value={metrics.valorTotal}
+                                format="currency"
+                                icon="💰"
+                                color="green"
+                            />
+                            <MetricCard
+                                title="Valor Médio"
+                                value={metrics.valorMedio}
+                                format="currency"
+                                icon="📈"
+                                color="purple"
+                            />
+                            <MetricCard
+                                title="Prazo Médio"
+                                value={metrics.prazoMedio}
+                                format="days"
+                                icon="⏱️"
+                                color="yellow"
+                            />
+                        </div>
+
+                        {/* Gráficos */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                            <SimpleChart
+                                data={agencyData}
+                                title="💰 Top Agências por Valor"
+                                type="bar"
+                            />
+                            <SimpleChart
+                                data={portfolioData}
+                                title="📊 Propostas por Carteira"
+                                type="bar"
+                            />
+                        </div>
+
+                        {/* Tabela de Dados */}
+                        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                            <div className="px-6 py-4 bg-gray-50 border-b">
+                                <h3 className="text-lg font-semibold flex items-center">
+                                    📋 Dados Detalhados
+                                </h3>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-gray-100">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agência</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Carteira</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prazo</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {filteredData.map((proposta, index) => (
+                                            <tr key={index} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                    {proposta.nomeCliente}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {proposta.nomeAgencia}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                                                    {new Intl.NumberFormat('pt-BR', {
+                                                        style: 'currency',
+                                                        currency: 'BRL'
+                                                    }).format(proposta.valor)}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                        {proposta.carteiraNegocio}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {proposta.totalDiasGeral} dias
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                                        proposta.statusPrioridade === 'ATIVA' ? 'bg-green-100 text-green-800' :
+                                                        proposta.statusPrioridade === 'EM ANÁLISE' ? 'bg-yellow-100 text-yellow-800' :
+                                                        'bg-red-100 text-red-800'
+                                                    }`}>
+                                                        {proposta.statusPrioridade}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="mt-12 text-center text-gray-500">
+                            <p>🚀 Dashboard Projetta2 - React Demo</p>
+                            <p className="text-sm">Desenvolvido com React + Tailwind CSS</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Render
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<Dashboard />);
+    </script>
+</body>
+</html>

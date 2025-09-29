@@ -1,265 +1,208 @@
-import React, { useState } from 'react'
 import { motion } from 'framer-motion'
-import Card, { CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
+import { 
+  CogIcon, 
+  SunIcon, 
+  MoonIcon, 
+  BellIcon,
+  UserIcon,
+  ShieldCheckIcon 
+} from '@heroicons/react/24/outline'
+import { useIsDarkMode, useToggleDarkMode } from '@/hooks/useStore'
 
-const Settings: React.FC = () => {
-  const [settings, setSettings] = useState({
-    refreshInterval: 300,
-    autoExport: false,
-    exportFormat: 'excel',
-    notifications: true,
-    cacheEnabled: true,
-  })
+const Settings = () => {
+  const isDarkMode = useIsDarkMode()
+  const toggleDarkMode = useToggleDarkMode()
 
-  const handleSettingChange = (key: string, value: any) => {
-    setSettings(prev => ({ ...prev, [key]: value }))
-  }
-
-  const saveSettings = () => {
-    // Aqui seria implementada a lógica para salvar as configurações
-    console.log('Settings saved:', settings)
-  }
+  const settingsSections = [
+    {
+      title: 'Aparência',
+      icon: <SunIcon className="w-5 h-5" />,
+      items: [
+        {
+          label: 'Modo Escuro',
+          description: 'Alternar entre tema claro e escuro',
+          action: (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={toggleDarkMode}
+              className="flex items-center space-x-2"
+            >
+              {isDarkMode ? <MoonIcon className="w-4 h-4" /> : <SunIcon className="w-4 h-4" />}
+              <span>{isDarkMode ? 'Escuro' : 'Claro'}</span>
+            </Button>
+          )
+        },
+        {
+          label: 'Idioma',
+          description: 'Português (Brasil)',
+          action: <span className="text-sm text-gray-500">Português</span>
+        }
+      ]
+    },
+    {
+      title: 'Notificações',
+      icon: <BellIcon className="w-5 h-5" />,
+      items: [
+        {
+          label: 'Alertas do Sistema',
+          description: 'Receber notificações sobre mudanças importantes',
+          action: <div className="w-12 h-6 bg-blue-500 rounded-full relative">
+            <div className="w-5 h-5 bg-white rounded-full absolute right-0.5 top-0.5"></div>
+          </div>
+        },
+        {
+          label: 'Novos Dados',
+          description: 'Notificar quando novos dados estiverem disponíveis',
+          action: <div className="w-12 h-6 bg-blue-500 rounded-full relative">
+            <div className="w-5 h-5 bg-white rounded-full absolute right-0.5 top-0.5"></div>
+          </div>
+        }
+      ]
+    },
+    {
+      title: 'Conta',
+      icon: <UserIcon className="w-5 h-5" />,
+      items: [
+        {
+          label: 'Perfil de Usuário',
+          description: 'Administrador do Sistema',
+          action: <Button variant="ghost" size="sm">Editar</Button>
+        },
+        {
+          label: 'Alterar Senha',
+          description: 'Última alteração há 30 dias',
+          action: <Button variant="ghost" size="sm">Alterar</Button>
+        }
+      ]
+    },
+    {
+      title: 'Segurança',
+      icon: <ShieldCheckIcon className="w-5 h-5" />,
+      items: [
+        {
+          label: 'Autenticação',
+          description: 'Autenticação de dois fatores desabilitada',
+          action: <Button variant="ghost" size="sm">Configurar</Button>
+        },
+        {
+          label: 'Logs de Acesso',
+          description: 'Histórico de acesso dos últimos 30 dias',
+          action: <Button variant="ghost" size="sm">Visualizar</Button>
+        }
+      ]
+    }
+  ]
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="space-y-2"
-      >
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-          Configurações
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Gerencie as preferências do dashboard
-        </p>
-      </motion.div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="min-h-screen bg-gray-50 dark:bg-gray-900"
+    >
+      <div className="p-6 space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+            Configurações
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">
+            Personalize sua experiência no dashboard
+          </p>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Display Settings */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <Card variant="elevated">
-            <CardHeader>
-              <CardTitle>Exibição</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Intervalo de Atualização
-                </label>
-                <select
-                  value={settings.refreshInterval}
-                  onChange={(e) => handleSettingChange('refreshInterval', parseInt(e.target.value))}
-                  className="input"
-                >
-                  <option value={30}>30 segundos</option>
-                  <option value={60}>1 minuto</option>
-                  <option value={300}>5 minutos</option>
-                  <option value={900}>15 minutos</option>
-                  <option value={0}>Desabilitado</option>
-                </select>
-              </div>
-
+        {/* System Status */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card>
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Notificações
-                  </label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Receber alertas sobre mudanças importantes
-                  </p>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Status do Sistema</div>
+                  <div className="text-xl font-bold text-green-600">Online</div>
                 </div>
-                <button
-                  onClick={() => handleSettingChange('notifications', !settings.notifications)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                    settings.notifications ? 'bg-primary-500' : 'bg-gray-200 dark:bg-gray-700'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                      settings.notifications ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Cache Habilitado
-                  </label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Melhora a performance do dashboard
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleSettingChange('cacheEnabled', !settings.cacheEnabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                    settings.cacheEnabled ? 'bg-primary-500' : 'bg-gray-200 dark:bg-gray-700'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                      settings.cacheEnabled ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
+                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
               </div>
             </CardContent>
           </Card>
-        </motion.div>
-
-        {/* Export Settings */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <Card variant="elevated">
-            <CardHeader>
-              <CardTitle>Exportações</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Formato Preferido
-                </label>
-                <select
-                  value={settings.exportFormat}
-                  onChange={(e) => handleSettingChange('exportFormat', e.target.value)}
-                  className="input"
-                >
-                  <option value="excel">Excel (.xlsx)</option>
-                  <option value="csv">CSV</option>
-                  <option value="pdf">PDF</option>
-                </select>
-              </div>
-
+          
+          <Card>
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Exportação Automática
-                  </label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Exportar relatórios periodicamente
-                  </p>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Última Atualização</div>
+                  <div className="text-xl font-bold text-gray-900 dark:text-gray-100">Agora</div>
                 </div>
-                <button
-                  onClick={() => handleSettingChange('autoExport', !settings.autoExport)}
-                  className={`relative inline-flex h-6 w-8 items-center rounded-full transition-colors duration-200 ${
-                    settings.autoExport ? 'bg-primary-500' : 'bg-gray-200 dark:bg-gray-700'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                      settings.autoExport ? 'translate-x-4' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {settings.autoExport && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="space-y-3"
-                >
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Frequência da Exportação
-                  </label>
-                  <select className="input">
-                    <option value="daily">Diariamente</option>
-                    <option value="business">Dias úteis</option>
-                    <option value="weekly">Semanalmente</option>
-                    <option value="monthly">Mensalmente</option>
-                  </select>
-                </motion.div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* About */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-        >
-          <Card variant="elevated">
-            <CardHeader>
-              <CardTitle>Sobre o Sistema</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Versão:</span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">2.0.0 React</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Última atualização:</span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Hoje</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Ambiente:</span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Desenvolvimento</span>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex flex-col space-y-3">
-                  <Button variant="secondary" className="w-full">
-                    📖 Documentação
-                  </Button>
-                  <Button variant="secondary" className="w-full">
-                    🆘 Suporte
-                  </Button>
-                  <Button variant="secondary" className="w-full">
-                    🔄 Verificar Atualizações
-                  </Button>
-                </div>
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Versão</div>
+                  <div className="text-xl font-bold text-gray-900 dark:text-gray-100">v2.0.0</div>
+                </div>
+                <CogIcon className="w-6 h-6 text-gray-400" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Settings Sections */}
+        <div className="space-y-6">
+          {settingsSections.map((section, sectionIndex) => (
+            <motion.div
+              key={section.title}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: sectionIndex * 0.1 }}
+            >
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-3">
+                    <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                      {section.icon}
+                    </div>
+                    <span>{section.title}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {section.items.map((item, itemIndex) => (
+                      <div 
+                        key={itemIndex}
+                        className="flex items-center justify-between py-4 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900 dark:text-gray-100">
+                            {item.label}
+                          </div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            {item.description}
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          {item.action}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
 
         {/* Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-        >
-          <Card variant="elevated">
-            <CardHeader>
-              <CardTitle>Ações</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col space-y-3">
-                <Button onClick={saveSettings} className="w-full">
-                  💾 Salvar Configurações
-                </Button>
-                <Button variant="secondary" className="w-full">
-                  🔄 Resetar Padrões
-                </Button>
-                <Button variant="danger" className="w-full">
-                  🗑️ Limpar Cache
-                </Button>
-                <Button variant="secondary" className="w-full">
-                  📊 Exportar Configurações
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+        <div className="flex justify-end space-x-4">
+          <Button variant="ghost">Cancelar</Button>
+          <Button>Salvar Alterações</Button>
+        </div>
       </div>
-    </div>
+    </motion.div>
   )
 }
 

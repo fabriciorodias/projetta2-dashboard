@@ -1,331 +1,182 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useProposals } from '@/hooks/useStore'
-import Input from '@/components/ui/Input'
+import { XMarkIcon } from '@heroicons/react/24/outline'
+import { useFilters, useSetFilters, useResetFilters } from '@/hooks/useStore'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
-import Card, { CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { 
-  MagnifyingGlassIcon, 
-  CalendarIcon, 
-  CurrencyDollarIcon, 
-  ClockIcon,
-  XMarkIcon,
-  FunnelIcon
-} from '@heroicons/react/24/outline'
+import Input from '@/components/ui/Input'
 
 interface FilterPanelProps {
   isOpen: boolean
   onClose: () => void
 }
 
-const FilterPanel: React.FC<FilterPanelProps> = ({ isOpen, onClose }) => {
-  const proposals = useProposals()
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filters, setFilters] = useState({
-    agencies: [],
-    portfolios: [],
-    managers: [],
-    statuses: [],
-    valueRange: { min: '', max: '' },
-    daysRange: { min: '', max: '' },
-    dateRange: { start: '', end: '' },
-  })
+const FilterPanel = ({ isOpen, onClose }: FilterPanelProps) => {
+  const filters = useFilters()
+  const setFilters = useSetFilters()
+  const resetFilters = useResetFilters()
+  
+  const [localFilters, setLocalFilters] = useState(filters)
 
-  // Get unique values for dropdowns
-  const uniqueValues = {
-    agencies: [...new Set(proposals.map(p => p.nomeAgencia))],
-    portfolios: [...new Set(proposals.map(p => p.carteiraNegocio).filter(Boolean))],
-    managers: [...new Set(proposals.map(p => p.gerenteResponsavel).filter(Boolean))],
-    statuses: [...new Set(proposals.map(p => p.statusPrioridade).filter(Boolean))],
+  const handleApply = () => {
+    setFilters(localFilters)
+    onClose()
   }
 
-  const handleMultiSelect = (field: string, value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      [field]: prev[field].includes(value)
-        ? prev[field].filter((item: string) => item !== value)
-        : [...prev[field], value]
-    }))
-  }
-
-  const clearAllFilters = () => {
-    setFilters({
+  const handleReset = () => {
+    resetFilters()
+    setLocalFilters({
       agencies: [],
       portfolios: [],
-      managers: [],
       statuses: [],
-      valueRange: { min: '', max: '' },
-      daysRange: { min: '', max: '' },
-      dateRange: { start: '', end: '' },
+      managers: [],
+      dateRange: { start: null, end: null },
+      valueRange: { min: null, max: null },
+      daysRange: { min: null, max: null },
+      searchTerm: '',
     })
-    setSearchTerm('')
-  }
-
-  const getActiveFiltersCount = () => {
-    return Object.values(filters).flat().filter(Boolean).length + (searchTerm ? 1 : 0)
   }
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Overlay */}
+          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-25 z-40"
             onClick={onClose}
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
           />
-          
+
           {/* Panel */}
           <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-white dark:bg-gray-900 shadow-xl z-50 overflow-hidden"
+            className="fixed top-0 right-0 z-50 h-full w-96 bg-white dark:bg-gray-800 shadow-xl border-l border-gray-200 dark:border-gray-700"
           >
-            <div className="h-full flex flex-col">
-              {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex items-center space-x-2">
-                  <FunnelIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Filtros
-                  </h3>
-                  {getActiveFiltersCount() > 0 && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200">
-                      {getActiveFiltersCount()}
-                    </span>
-                  )}
-                </div>
+            <Card className="h-full rounded-none border-0">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                <CardTitle className="text-lg font-semibold">Filtros Avançados</CardTitle>
                 <Button variant="ghost" size="sm" onClick={onClose}>
-                  <XMarkIcon className="w-4 h-4" />
+                  <XMarkIcon className="w-5 h-5" />
                 </Button>
-              </div>
+              </CardHeader>
 
-              {/* Content */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <CardContent className="flex-1 overflow-y-auto space-y-6">
                 {/* Search */}
-                <Card variant="outline">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Busca Global</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Input
-                      placeholder="Buscar propostas, clientes..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      leftIcon={<MagnifyingGlassIcon className="w-4 h-4" />}
-                    />
-                  </CardContent>
-                </Card>
-
-                {/* Agencies */}
-                <Card variant="outline">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">🔥 Agências</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {uniqueValues.agencies.map(agency => (
-                        <label key={agency} className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={filters.agencies.includes(agency)}
-                            onChange={() => handleMultiSelect('agencies', agency)}
-                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                          />
-                          <span className="text-sm text-gray-700 dark:text-gray-300">
-                            {agency}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Portfolios */}
-                <Card variant="outline">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">💼 Carteiras</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {uniqueValues.portfolios.map(portfolio => (
-                        <label key={portfolio} className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={filters.portfolios.includes(portfolio)}
-                            onChange={() => handleMultiSelect('portfolios', portfolio)}
-                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                          />
-                          <span className="text-sm text-gray-700 dark:text-gray-300">
-                            {portfolio}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Managers */}
-                <Card variant="outline">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">👥 Gerentes</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {uniqueValues.managers.map(manager => (
-                        <label key={manager} className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={filters.managers.includes(manager)}
-                            onChange={() => handleMultiSelect('managers', manager)}
-                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                          />
-                          <span className="text-sm text-gray-700 dark:text-gray-300">
-                            {manager.split(' - ')[0]}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Status */}
-                <Card variant="outline">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">📊 Status</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {uniqueValues.statuses.map(status => (
-                        <label key={status} className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={filters.statuses.includes(status)}
-                            onChange={() => handleMultiSelect('statuses', status)}
-                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                          />
-                          <span className="text-sm text-gray-700 dark:text-gray-300">
-                            {status}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                <Input
+                  label="Busca"
+                  placeholder="Digite um termo de busca..."
+                  value={localFilters.searchTerm}
+                  onChange={(e) => setLocalFilters(prev => ({ ...prev, searchTerm: e.target.value }))}
+                />
 
                 {/* Value Range */}
-                <Card variant="outline">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">💰 Faixa de Valores</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input
-                        placeholder="Valor mínimo"
-                        type="number"
-                        leftIcon={<CurrencyDollarIcon className="w-4 h-4" />}
-                        value={filters.valueRange.min}
-                        onChange={(e) => setFilters(prev => ({
-                          ...prev,
-                          valueRange: { ...prev.valueRange, min: e.target.value }
-                        }))}
-                      />
-                      <Input
-                        placeholder="Valor máximo"
-                        type="number"
-                        leftIcon={<CurrencyDollarIcon className="w-4 h-4" />}
-                        value={filters.valueRange.max}
-                        onChange={(e) => setFilters(prev => ({
-                          ...prev,
-                          valueRange: { ...prev.valueRange, max: e.target.value }
-                        }))}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Valor da Proposta
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Mínimo"
+                      value={localFilters.valueRange.min || ''}
+                      onChange={(e) => setLocalFilters(prev => ({
+                        ...prev,
+                        valueRange: { ...prev.valueRange, min: Number(e.target.value) || null }
+                      }))}
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Máximo"
+                      value={localFilters.valueRange.max || ''}
+                      onChange={(e) => setLocalFilters(prev => ({
+                        ...prev,
+                        valueRange: { ...prev.valueRange, max: Number(e.target.value) || null }
+                      }))}
+                    />
+                  </div>
+                </div>
 
                 {/* Days Range */}
-                <Card variant="outline">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">⏱️ Faixa de Prazos</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input
-                        placeholder="Dias mín."
-                        type="number"
-                        leftIcon={<ClockIcon className="w-4 h-4" />}
-                        value={filters.daysRange.min}
-                        onChange={(e) => setFilters(prev => ({
-                          ...prev,
-                          daysRange: { ...prev.daysRange, min: e.target.value }
-                        }))}
-                      />
-                      <Input
-                        placeholder="Dias máx."
-                        type="number"
-                        leftIcon={<ClockIcon className="w-4 h-4" />}
-                        value={filters.daysRange.max}
-                        onChange={(e) => setFilters(prev => ({
-                          ...prev,
-                          daysRange: { ...prev.daysRange, max: e.target.value }
-                        }))}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Dias de Processamento
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Mínimo"
+                      value={localFilters.daysRange.min || ''}
+                      onChange={(e) => setLocalFilters(prev => ({
+                        ...prev,
+                        daysRange: { ...prev.daysRange, min: Number(e.target.value) || null }
+                      }))}
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Máximo"
+                      value={localFilters.daysRange.max || ''}
+                      onChange={(e) => setLocalFilters(prev => ({
+                        ...prev,
+                        daysRange: { ...prev.daysRange, max: Number(e.target.value) || null }
+                      }))}
+                    />
+                  </div>
+                </div>
 
                 {/* Date Range */}
-                <Card variant="outline">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">📅 Período</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input
-                        type="date"
-                        leftIcon={<CalendarIcon className="w-4 h-4" />}
-                        value={filters.dateRange.start}
-                        onChange={(e) => setFilters(prev => ({
-                          ...prev,
-                          dateRange: { ...prev.dateRange, start: e.target.value }
-                        }))}
-                      />
-                      <Input
-                        type="date"
-                        leftIcon={<CalendarIcon className="w-4 h-4" />}
-                        value={filters.dateRange.end}
-                        onChange={(e) => setFilters(prev => ({
-                          ...prev,
-                          dateRange: { ...prev.dateRange, end: e.target.value }
-                        }))}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Período de Criação
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="date"
+                      value={localFilters.dateRange.start ? localFilters.dateRange.start.toISOString().split('T')[0] : ''}
+                      onChange={(e) => setLocalFilters(prev => ({
+                        ...prev,
+                        dateRange: {
+                          ...prev.dateRange,
+                          start: e.target.value ? new Date(e.target.value) : null
+                        }
+                      }))}
+                    />
+                    <Input
+                      type="date"
+                      value={localFilters.dateRange.end ? localFilters.dateRange.end.toISOString().split('T')[0] : ''}
+                      onChange={(e) => setLocalFilters(prev => ({
+                        ...prev,
+                        dateRange: {
+                          ...prev.dateRange,
+                          end: e.target.value ? new Date(e.target.value) : null
+                        }
+                      }))}
+                    />
+                  </div>
+                </div>
+              </CardContent>
 
               {/* Footer */}
-              <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
-                <div className="flex space-x-3">
-                  <Button variant="secondary" onClick={clearAllFilters} className="flex-1">
-                    🗑️ Limpar Tudo
+              <div className="border-t border-gray-200 dark:border-gray-700 p-4 space-y-3">
+                <div className="flex space-x-2">
+                  <Button
+                    variant="secondary"
+                    onClick={handleReset}
+                    className="flex-1"
+                  >
+                    Limpar Filtros
                   </Button>
-                  <Button className="flex flex-1">
-                    ✅ Aplicar Filtros
+                  <Button onClick={handleApply} className="flex-1">
+                    Aplicar
                   </Button>
                 </div>
-                
-                <Button variant="ghost" onClick={onClose} className="w-full">
-                  Fechar
-                </Button>
               </div>
-            </div>
+            </Card>
           </motion.div>
         </>
       )}

@@ -1,4 +1,3 @@
-import React from 'react'
 import { Card, CardContent } from './Card'
 import { motion } from 'framer-motion'
 
@@ -18,7 +17,7 @@ interface MetricCardProps {
   className?: string
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({
+const MetricCard = ({
   title,
   value,
   unit,
@@ -28,7 +27,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
   format = 'number',
   loading = false,
   className = '',
-}) => {
+}: MetricCardProps) => {
   const colors = {
     blue: 'from-blue-500 to-blue-600',
     green: 'from-green-500 to-green-600',
@@ -80,7 +79,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
 
   if (loading) {
     return (
-      <Card className={`metric-card animate-pulse ${className}`}>
+      <Card className={`animate-pulse ${className}`}>
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-2">
             <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
@@ -100,7 +99,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
       transition={{ duration: 0.3 }}
       className={className}
     >
-      <Card className="metric-card h-full group">
+      <Card className="h-full group hover:shadow-lg transition-shadow duration-200">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate">
@@ -114,13 +113,16 @@ const MetricCard: React.FC<MetricCardProps> = ({
           </div>
           
           <div className="space-y-2">
-            <p className="metric-value text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               {formatValue(value)}
               {unit && <span className="text-sm font-medium text-gray-500 ml-1">{unit}</span>}
             </p>
             
             {change && (
-              <div className={`flex items-center space-x-1 text-sm metric-change ${change.type}`}>
+              <div className={`flex items-center space-x-1 text-sm ${
+                change.type === 'positive' ? 'text-green-600' : 
+                change.type === 'negative' ? 'text-red-600' : 'text-gray-500'
+              }`}>
                 {getChangeIcon(change.type)}
                 <span className="font-medium">
                   {Math.abs(change.value)}

@@ -1,333 +1,233 @@
-import type { Proposal, KPIMetrics, Benchmark, Filters } from '@/types/proposals'
+import { Proposal, Metrics, Benchmarks, ManagerPerformance } from '@/types/proposals'
 
-// Mock data - in production this would come from CSV processing
-const mockProposals: Proposal[] = [
-  {
-    sicad: 1,
-    nomeCliente: 'João Silva',
-    nomeAgencia: 'Agência Central',
-    valor: 50000,
-    tarefa: 'Aprovação',
-    carteiraNegocio: 'Pessoa Física',
-    gerenteResponsavel: 'Maria Santos - PF001',
-    statusPrioridade: 'APROVADA',
-    dataCriacao: new Date('2024-01-15'),
-    totalDiasGeral: 15,
-    categoriaPerformance: 'Rápido',
-    categoriaValor: 'Médio',
-  },
-  {
-    sicad: 2,
-    nomeCliente: 'Empresa ABC Ltda',
-    nomeAgencia: 'Agência Norte',
-    valor: 150000,
-    tarefa: 'Análise',
-    carteiraNegocio: 'Pessoa Jurídica',
-    gerenteResponsavel: 'Carlos Oliveira - PJ002',
-    statusPrioridade: 'EM_ANALISE',
-    dataCriacao: new Date('2024-01-20'),
-    totalDiasGeral: 25,
-    categoriaPerformance: 'Normal',
-    categoriaValor: 'Alto',
-  },
-  {
-    sicad: 3,
-    nomeCliente: 'Ana Costa',
-    nomeAgencia: 'Agência Sul',
-    valor: 25000,
-    tarefa: 'Documentação',
-    carteiraNegocio: 'Consignado',
-    gerenteResponsavel: 'Pedro Almeida - CON003',
-    statusPrioridade: 'PENDENTE_DOCUMENTOS',
-    dataCriacao: new Date('2024-01-25'),
-    totalDiasGeral: 35,
-    categoriaPerformance: 'Lento',
-    categoriaValor: 'Baixo',
-  },
-]
+// Mock data generator
+const generateMockProposals = (count: number): Proposal[] => {
+  const clients = ['Cliente A', 'Cliente B', 'Cliente C', 'Cliente D', 'Cliente E']
+  const agencies = ['Agencia SP', 'Agencia RJ', 'Agencia BH', 'Agencia Recife']
+  const programs = ['Credito Pessoal', 'Financiamento Auto', 'Credito Imobiliario']
+  const statuses = ['Aprovado', 'Em Analise', 'Pendente', 'Rejeitado']
+  const portfolios = ['Carteira Premium', 'Carteira Standard', 'Carteira Básica']
+  const managers = ['João Silva', 'Maria Santos', 'Pedro Costa', 'Ana Oliveira']
 
-// Function to simulate data loading with optional filters
-export async function fetchProposals(filters?: Partial<Filters>): Promise<Proposal[]> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 300))
+  return Array.from({ length: count }, (_, i) => ({
+    sicad: 100000 + i,
+    nomeCliente: clients[Math.floor(Math.random() * clients.length)] + ` ${i + 1}`,
+    nomeAgencia: agencies[Math.floor(Math.random() * agencies.length)],
+    valor: Math.floor(Math.random() * 500000) + 10000,
+    tarefa: `${Math.floor(Math.random() * 20)} dias`,
+    agenciaCentral: agencies[Math.floor(Math.random() * agencies.length)],
+    diasTarefa: Math.floor(Math.random() * 30) + 5,
+    dataProjecao: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString(),
+    programaCredito: programs[Math.floor(Math.random() * programs.length)],
+    nomeCentral: 'Central SP',
+    dataCriacao: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString(),
+    statusPrioridade: statuses[Math.floor(Math.random() * statuses.length)],
+    carteiraNegocio: portfolios[Math.floor(Math.random() * portfolios.length)],
+    gerenteResponsavel: managers[Math.floor(Math.random() * managers.length)],
+    totalDiasGeral: Math.floor(Math.random() * 180) + 30,
+    totalDiasAgencia: Math.floor(Math.random() * 60) + 10,
+    totalDiasCentral: Math.floor(Math.random() * 90) + 15,
+    totalDiasComite: Math.floor(Math.random() * 45) + 5,
+    mesAno: '2024-' + String(Math.floor(Math.random() * 12) + 1).padStart(2, '0'),
+    ano: 2024,
+    mes: Math.floor(Math.random() * 12) + 1,
+    diaSemana: Math.floor(Math.random() * 7) + 1,
+    nomeDiaSemana: ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][Math.floor(Math.random() * 7)],
+    gerenteNome: managers[Math.floor(Math.random() * managers.length)],
+    categoriaPerformance: ['Rápido', 'Normal', 'Lento', 'Muito Lento'][Math.floor(Math.random() * 4)] as Proposal['categoriaPerformance'],
+    categoriaValor: ['Baixo', 'Médio', 'Alto', 'Muito Alto'][Math.floor(Math.random() * 4)] as Proposal['categoriaValor']
+  }))
+}
 
-  let filteredProposals = [...mockProposals]
+const MOCK_PROPOSALS = generateMockProposals(150)
 
-  if (filters) {
-    // Apply basic filters
-    if (filters.agencies && filters.agencies.length > 0) {
-      filteredProposals = filteredProposals.filter(proposal => 
-        filters.agencies!.includes(proposal.nomeAgencia)
-      )
-    }
+// API Service
+export class ApiService {
+  private static delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-    if (filters.portfolios && filters.portfolios.length > 0) {
-      filteredProposals = filteredProposals.filter(proposal => 
-        filters.portfolios!.includes(proposal.carteiraNegocio || '')
-      )
-    }
-
-    if (filters.statuses && filters.statuses.length > 0) {
-      filteredProposals = filteredProposals.filter(proposal => 
-        filters.statuses!.includes(proposal.statusPrioridade || '')
-      )
-    }
-
-    if (filters.managers && filters.managers.length > 0) {
-      filteredProposals = filteredProposals.filter(proposal => 
-        filters.managers!.includes(proposal.gerenteResponsavel || '')
-      )
-    }
-
-    if (filters.searchTerm) {
-      const searchTerm = filters.searchTerm.toLowerCase()
-      filteredProposals = filteredProposals.filter(proposal => 
-        proposal.nomeCliente.toLowerCase().includes(searchTerm) ||
-        proposal.nomeAgencia.toLowerCase().includes(searchTerm)
-      )
-    }
-
-    if (filters.valueRange) {
-      filteredProposals = filteredProposals.filter(proposal => {
-        if (filters.valueRange!.min !== null && proposal.valor < filters.valueRange!.min) return false
-        if (filters.valueRange!.max !== null && proposal.valor > filters.valueRange!.max) return false
-        return true
-      })
-    }
-
-    if (filters.daysRange) {
-      filteredProposals = filteredProposals.filter(proposal => {
-        if (!proposal.totalDiasGeral) return false
-        if (filters.daysRange!.min !== null && proposal.totalDiasGeral < filters.daysRange!.min) return false
-        if (filters.daysRange!.max !== null && proposal.totalDiasGeral > filters.daysRange!.max) return false
-        return true
-      })
+  static async fetchProposals(): Promise<Proposal[]> {
+    await this.delay(1000) // Simulate network delay
+    
+    try {
+      return MOCK_PROPOSALS
+    } catch (error) {
+      throw new Error('Erro ao carregar propostas')
     }
   }
 
-  return filteredProposals
-}
+  static async fetchMetrics(): Promise<Metrics> {
+    await this.delay(800)
+    
+    const totalProposals = MOCK_PROPOSALS.length
+    const totalValue = MOCK_PROPOSALS.reduce((sum, p) => sum + p.valor, 0)
+    const averageValue = totalValue / totalProposals
+    const averageDays = MOCK_PROPOSALS.reduce((sum, p) => sum + p.diasTarefa, 0) / totalProposals
+    
+    // Status breakdown
+    const proposalsByStatus = MOCK_PROPOSALS.reduce((acc, p) => {
+      acc[p.statusPrioridade] = (acc[p.statusPrioridade] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
 
-export async function fetchAnalytics(filters?: Partial<Filters>): Promise<{ metrics: KPIMetrics; benchmarks: Benchmark }> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 200))
+    // Agency performance
+    const agencyStats = MOCK_PROPOSALS.reduce((acc, p) => {
+      if (!acc[p.nomeAgencia]) {
+        acc[p.nomeAgencia] = { total: 0, days: 0 }
+      }
+      acc[p.nomeAgencia].total += p.valor
+      acc[p.nomeAgencia].days += p.diasTarefa
+      return acc
+    }, {} as Record<string, { total: number; days: number }>)
 
-  const proposals = await fetchProposals(filters)
-  
-  if (proposals.length === 0) {
+    const averageProcessingTimeByAgency = Object.entries(agencyStats).reduce((acc, [agency, stats]) => {
+      const proposalCount = MOCK_PROPOSALS.filter(p => p.nomeAgencia === agency).length
+      acc[agency] = stats.days / proposalCount
+      return acc
+    }, {} as Record<string, number>)
+
+    const uniqueManagers = new Set(MOCK_PROPOSALS.map(p => p.gerenteResponsavel)).size
+
     return {
-      metrics: {
-        totalProposals: 0,
-        totalValue: 0,
-        averageValue: 0,
-        medianValue: 0,
-        averageDays: 0,
-        medianDays: 0,
-        uniqueClients: 0,
-        uniqueAgencies: 0,
-        uniqueManagers: 0,
-        portfolioDistribution: [],
-        agencyDistribution: [],
-        managerPerformance: [],
-        timelineData: [],
-        performanceDistribution: {
-          rapido: 0,
-          normal: 0,
-          lento: 0,
-          muito_lento: 0,
-        },
-      },
-      benchmarks: {
-        avg_value: 0,
-        median_value: 0,
-        avg_days: 0,
-        median_days: 0,
-        excellent_days: 0,
-        good_days: 0,
-        poor_days: 0,
-        high_value: 0,
-        low_value: 0,
-      },
+      totalProposals,
+      totalValue,
+      averageValue,
+      averageDays: Math.round(averageDays),
+      uniqueManagers,
+      proposalsByStatus,
+      averageProcessingTimeByAgency
     }
   }
 
-  // Calculate metrics
-  const totalProposals = proposals.length
-  const totalValue = proposals.reduce((sum, p) => sum + p.valor, 0)
-  const averageValue = totalValue / totalProposals
-  const sortedValues = proposals.map(p => p.valor).sort((a, b) => a - b)
-  const medianValue = sortedValues[Math.floor(sortedValues.length / 2)]
-
-  const daysWithValues = proposals.filter(p => p.totalDiasGeral !== undefined).map(p => p.totalDiasGeral!)
-  const averageDays = daysWithValues.reduce((sum, days) => sum + days, 0) / daysWithValues.length
-  const sortedDays = daysWithValues.sort((a, b) => a - b)
-  const medianDays = sortedDays[Math.floor(sortedDays.length / 2)]
-
-  const uniqueClients = new Set(proposals.map(p => p.nomeCliente)).size
-  const uniqueAgencies = new Set(proposals.map(p => p.nomeAgencia)).size
-  const uniqueManagers = new Set(proposals.map(p => p.gerenteResponsavel)).size
-
-  // Portfolio distribution
-  const portfolioMap = new Map()
-  proposals.forEach(proposal => {
-    const portfolio = proposal.carteiraNegocio || 'Não Informado'
-    if (!portfolioMap.has(portfolio)) {
-      portfolioMap.set(portfolio, {
-        carteira: portfolio,
-        qtd: 0,
-        valor_total: 0,
-        valor_medio: 0,
-        prazo_medio: 0,
-      })
-    }
-    const data = portfolioMap.get(portfolio)
-    data.qtd += 1
-    data.valor_total += proposal.valor
-    data.prazo_medio += proposal.totalDiasGeral || 0
-  })
-
-  const portfolioDistribution = Array.from(portfolioMap.values()).map(item => ({
-    ...item,
-    valor_medio: item.valor_total / item.qtd,
-    prazo_medio: item.prazo_medio / item.qtd,
-    porcentagem: (item.qtd / totalProposals * 100),
-  }))
-
-  // Agency distribution
-  const agencyMap = new Map()
-  proposals.forEach(proposal => {
-    const agency = proposal.nomeAgencia
-    if (!agencyMap.has(agency)) {
-      agencyMap.set(agency, {
-        agencia: agency,
-        qtd: 0,
-        valor_total: 0,
-        valor_medio: 0,
-        prazo_medio: 0,
-      })
-    }
-    const data = agencyMap.get(agency)
-    data.qtd += 1
-    data.valor_total += proposal.valor
-    data.prazo_medio += proposal.totalDiasGeral || 0
-  })
-
-  const agencyDistribution = Array.from(agencyMap.values()).map(item => ({
-    ...item,
-    valor_medio: item.valor_total / item.qtd,
-    prazo_medio: item.prazo_medio / item.qtd,
-    porcentagem: (item.qtd / totalProposals * 100),
-  }))
-
-  // Manager performance
-  const managerMap = new Map()
-  proposals.forEach(proposal => {
-    const manager = proposal.gerenteResponsavel || 'Não Informado'
-    const managerName = manager.split(' - ')[0]
+  static async fetchBenchmarks(): Promise<Benchmarks[]> {
+    await this.delay(600)
     
-    if (!managerMap.has(manager)) {
-      managerMap.set(manager, {
-        gerente: manager,
-        gerente_nome: managerName,
-        qtd_propostas: 0,
-        valor_total: 0,
-        valor_medio: 0,
-        prazo_medio: 0,
-        prazo_desvio: 0,
-        produtividade: 0,
-        eficiencia_prazo: 0,
-        score_geral: 0,
-      })
-    }
-    const data = managerMap.get(manager)
-    data.qtd_propostas += 1
-    data.valor_total += proposal.valor
-    data.prazo_medio += proposal.totalDiasGeral || 0
-  })
-
-  const managerPerformance = Array.from(managerMap.values()).map(item => {
-    item.valor_medio = item.valor_total / item.qtd_propostas
-    item.prazo_medio = item.prazo_medio / item.qtd_propostas
+    const agencies = [...new Set(MOCK_PROPOSALS.map(p => p.nomeAgencia))]
     
-    const maxProposals = Math.max(...Array.from(managerMap.values()).map(m => m.qtd_propostas))
-    const maxDays = Math.max(...Array.from(managerMap.values()).map(m => m.prazo_medio))
-    
-    item.produtividade = (item.qtd_propostas / maxProposals) * 100
-    item.eficiencia_prazo = ((maxDays - item.prazo_medio) / maxDays) * 100
-    item.score_geral = (item.produtividade * 0.6) + (item.eficiencia_prazo * 0.4)
-    
-    if (item.score_geral >= 70) {
-    (item as any).categoria = 'Excelente'
-    } else if (item.score_geral >= 40) {
-    (item as any).categoria = 'Bom'
-    } else {
-    (item as any).categoria = 'Precisa Melhorar'
-    }
-    
-    return item
-  })
-
-  // Performance distribution
-  const performanceDistribution = {
-    rapido: proposals.filter(p => p.categoriaPerformance === 'Rápido').length,
-    normal: proposals.filter(p => p.categoriaPerformance === 'Normal').length,
-    lento: proposals.filter(p => p.categoriaPerformance === 'Lento').length,
-    muito_lento: proposals.filter(p => p.categoriaPerformance === 'Muito Lento').length,
+    return agencies.map(agency => {
+      const agencyProposals = MOCK_PROPOSALS.filter(p => p.nomeAgencia === agency)
+      const proposals = agencyProposals.length
+      const avgValue = agencyProposals.reduce((sum, p) => sum + p.valor, 0) / proposals
+      const avgDays = agencyProposals.reduce((sum, p) => sum + p.diasTarefa, 0) / proposals
+      
+      // Simple efficiency score calculation
+      const efficiencyScore = Math.max(0, Math.min(100, 100 - (avgDays - 15) * 2))
+      
+      return {
+        agency,
+        proposals,
+        avgValue: Math.round(avgValue),
+        avgDays: Math.round(avgDays),
+        efficiencyScore: Math.round(efficiencyScore)
+      }
+    }).sort((a, b) => b.efficiencyScore - a.efficiencyScore)
   }
 
-  const metrics: KPIMetrics = {
-    totalProposals,
-    totalValue,
-    averageValue,
-    medianValue,
-    averageDays,
-    medianDays,
-    uniqueClients,
-    uniqueAgencies,
-    uniqueManagers,
-    portfolioDistribution,
-    agencyDistribution,
-    managerPerformance,
-    timelineData: [], // Timeline would be calculated based on date range
-    performanceDistribution,
+  static async fetchManagerPerformance(): Promise<ManagerPerformance[]> {
+    await this.delay(700)
+    
+    const managers = [...new Set(MOCK_PROPOSALS.map(p => p.gerenteResponsavel))]
+    
+    const managerPerformance = managers.map(gerente => {
+      const proposals = MOCK_PROPOSALS.filter(p => p.gerenteResponsavel === gerente)
+      const qtdPropostas = proposals.length
+      const valorMedio = proposals.reduce((sum, p) => sum + p.valor, 0) / qtdPropostas
+      const prazoMedio = proposals.reduce((sum, p) => sum + p.diasTarefa, 0) / qtdPropostas
+      
+      return {
+        gerente,
+        qtdPropostas,
+        valorMedio: Math.round(valorMedio),
+        prazoMedio: Math.round(prazoMedio),
+        produtividade: 0, // Will be calculated below
+        eficienciaPrazo: 0, // Will be calculated below
+        scoreGeral: 0, // Will be calculated below
+        categoria: '' // Will be calculated below
+      }
+    })
+
+    // Calculate relative performance metrics
+    const maxProposals = Math.max(...managerPerformance.map(m => m.qtdPropostas))
+    const maxDays = Math.max(...managerPerformance.map(m => m.prazoMedio))
+
+    return managerPerformance.map(item => {
+      item.produtividade = (item.qtdPropostas / maxProposals) * 100
+      item.eficienciaPrazo = ((maxDays - item.prazoMedio) / maxDays) * 100
+      item.scoreGeral = (item.produtividade * 0.6) + (item.eficienciaPrazo * 0.4)
+
+      if (item.scoreGeral >= 70) {
+        item.categoria = 'Excelente'
+      } else if (item.scoreGeral >= 40) {
+        item.categoria = 'Bom'
+      } else {
+        item.categoria = 'Precisa Melhorar'
+      }
+
+      return item
+    }).sort((a, b) => b.scoreGeral - a.scoreGeral)
   }
 
-  // Calculate benchmarks
-  const benchmarks: Benchmark = {
-    avg_value: averageValue,
-    median_value: medianValue,
-    avg_days: averageDays,
-    median_days: medianDays,
-    excellent_days: averageDays * 0.7,
-    good_days: averageDays * 0.9,
-    poor_days: averageDays * 1.2,
-    high_value: medianValue * 2,
-    low_value: medianValue * 0.5,
+  static async exportData(format: 'csv' | 'excel' | 'pdf', proposals: Proposal[]): Promise<void> {
+    await this.delay(1000)
+    
+    // Simulate file download
+    const csvContent = proposals.map(p => 
+      `${p.sicad},${p.nomeCliente},${p.valor},${p.statusPrioridade}`
+    ).join('\n')
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `propostas-${format}-${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
-  return { metrics, benchmarks }
-}
-
-export async function exportData(format: 'csv' | 'excel' | 'pdf', filters?: Partial<Filters>): Promise<Blob> {
-  // Simulate export processing
-  await new Promise(resolve => setTimeout(resolve, 1000))
-
-  const proposals = await fetchProposals(filters)
-
-  switch (format) {
-    case 'csv':
-      const csvContent = `
-sicad,nomeCliente,nomeAgencia,valor,carteiraNegocio,gerenteResponsavel,statusPrioridade,dataCriacao,totalDiasGeral
-${proposals.map(p => `${p.sicad},"${p.nomeCliente}","${p.nomeAgencia}",${p.valor},"${p.carteiraNegocio}","${p.gerenteResponsavel}","${p.statusPrioridade}",${p.dataCriacao?.toISOString()},${p.totalDiasGeral}`).join('\n')}
-      `
-      return new Blob([csvContent], { type: 'text/csv' })
-
-    case 'excel':
-    case 'pdf':
-      // These would generate actual Excel/PDF files
-      return new Blob(['Mock export data'], { type: 'application/octet-stream' })
-
-    default:
-      throw new Error(`Unsupported format: ${format}`)
+  static async filterProposals(filters: any): Promise<Proposal[]> {
+    await this.delay(300)
+    
+    return MOCK_PROPOSALS.filter(proposal => {
+      // Agency filter
+      if (filters.agencies && filters.agencies.length > 0 && !filters.agencies.includes('Todos')) {
+        if (!filters.agencies.includes(proposal.nomeAgencia)) return false
+      }
+      
+      // Portfolio filter
+      if (filters.portfolios && filters.portfolios.length > 0 && !filters.portfolios.includes('Todos')) {
+        if (!filters.portfolios.includes(proposal.carteiraNegocio)) return false
+      }
+      
+      // Status filter
+      if (filters.statuses && filters.statuses.length > 0 && !filters.statuses.includes('Todos')) {
+        if (!filters.statuses.includes(proposal.statusPrioridade)) return false
+      }
+      
+      // Manager filter
+      if (filters.managers && filters.managers.length > 0 && !filters.managers.includes('Todos')) {
+        if (!filters.managers.includes(proposal.gerenteResponsavel)) return false
+      }
+      
+      // Value range filter
+      if (filters.valueRange?.min !== null && proposal.valor < filters.valueRange.min) return false
+      if (filters.valueRange?.max !== null && proposal.valor > filters.valueRange.max) return false
+      
+      // Days range filter
+      if (filters.daysRange?.min !== null && proposal.diasTarefa < filters.daysRange.min) return false
+      if (filters.daysRange?.max !== null && proposal.diasTarefa > filters.daysRange.max) return false
+      
+      // Search term filter
+      if (filters.searchTerm) {
+        const searchLower = filters.searchTerm.toLowerCase()
+        if (!proposal.nomeCliente.toLowerCase().includes(searchLower) &&
+            !proposal.nomeAgencia.toLowerCase().includes(searchLower) &&
+            !proposal.sicad.toString().includes(searchLower)) {
+          return false
+        }
+      }
+      
+      return true
+    })
   }
 }
+
+export default ApiService

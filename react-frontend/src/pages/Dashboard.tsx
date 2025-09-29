@@ -1,238 +1,298 @@
-import React from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { useQuery } from '@tanstack/react-query'
-import MetricCard from '@/components/ui/MetricCard'
-import Card, { CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { fetchProposals, fetchAnalytics } from '@/services/api'
 import { 
-  ChartBarIcon, 
-  CurrencyDollarIcon, 
+  DocumentTextIcon, 
+  BanknotesIcon, 
+  WalletIcon, 
   ClockIcon, 
   UserGroupIcon 
 } from '@heroicons/react/24/outline'
-import LineChart from '@/components/charts/LineChart'
-import BarChart from '@/components/charts/BarChart'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import MetricCard from '@/components/ui/MetricCard'
 import PieChart from '@/components/charts/PieChart'
+import BarChart from '@/components/charts/BarChart'
+import LineChart from '@/components/charts/LineChart'
+import { useStoreActions } from '@/hooks/useStore'
+import ApiService from '@/services/api'
 
-const Dashboard: React.FC = () => {
-  const { data: proposals, isLoading: proposalsLoading } = useQuery({
-    queryKey: ['proposals'],
-    queryFn: () => fetchProposals(),
-  })
+interface AnalyticsData {
+  metrics: any
+  proposalsByAgency: any[]
+  proposalsByMonth: any[]
+  statusDistribution: any[]
+}
 
-  const { data: analytics, isLoading: analyticsLoading } = useQuery({
-    queryKey: ['analytics'],
-    queryFn: () => fetchAnalytics(),
-  })
+const Dashboard = () => {
+  const { setProposals, setMetrics, setIsLoading, addAlert } = useStoreActions()
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const isLoading = proposalsLoading || analyticsLoading
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true)
+        
+        // Load proposals
+        const proposalsData = await ApiService.fetchProposals()
+        setProposals(proposalsData)
+        
+        // Load metrics
+        const metrics = await ApiService.fetchMetrics()
+        setMetrics(metrics)
 
-  const metrics = [
+        // Generate analytics from proposals
+        const analyticsData: AnalyticsData = {
+          metrics,
+          proposalsByAgency: generateProposalsByAgency(proposalsData),
+          proposalsByMonth: generateProposalsByMonth(proposalsData),
+          statusDistribution: generateStatusDistribution(proposalsData)
+        }
+        
+        setAnalytics(analyticsData)
+        addAlert({
+          type: 'success',
+          message: 'Dados carregados com sucesso!',
+          autoHide: true
+        })
+      } catch (error) {
+        addAlert({
+          type: 'error',
+          message: 'Erro ao carregar dados do dashboard'
+        })
+      } finally {
+        setIsLoading(false)
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [setProposals, setMetrics, setIsLoading, addAlert])
+
+  const generateProposalsByAgency = (proposals: any[]) => {
+    const agencyData = proposals.reduce((acc: any, p) => {
+      acc[p.nomeAgencia] = (acc[p.nomeAgencia] || 0) + 1
+      return acc
+    }, {})
+
+    return Object.entries(agencyData).map(([name, value]) => ({
+      name: name.split(' ')[0], // Shorten agency names
+      value
+    }))
+  }
+
+  const generateProposalsByMonth = (proposals: any[]) => {
+    const monthData = proposals.reduce((acc: any, p) => {
+      const month = `${p.mes}/${p.ano}`
+      acc[month] = (acc[month] || 0) + 1
+      return acc
+    }, {})
+
+    return Object.entries(monthData)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-6) // Last 6 months
+      .map(([name, value]) => ({ name, value }))
+  }
+
+  const generateStatusDistribution = (proposals: any[]) => {
+    const statusData = proposals.reduce((acc: any, p) => {
+      acc[p.statusPrioridade] = (acc[p.statusPrioridade] || 0) + 1
+      return acc
+    }, {})
+
+    return Object.entries(statusData).map(([name, value]) => ({
+      name,
+      value
+    }))
+  }
+
+  const metricCards = analytics?.metrics ? [
     {
       title: 'Total de Propostas',
-      value: analytics?.metrics.totalProposals || 0,
-      icon: <ChartBarIcon className="w-5 h-5" />,
+      value: analytics.metrics.totalProposals || 0,
+      icon: <DocumentTextIcon className="w-5 h-5" />,
       color: 'blue' as const,
     },
     {
       title: 'Valor Total',
-      value: analytics?.metrics.totalValue || 0,
+      value: analytics.metrics.totalValue || 0,
+      unit: 'R$',
       format: 'currency' as const,
-      icon: <CurrencyDollarIcon className="w-5 h-5" />,
+      icon: <BanknotesIcon className="w-5 h-5" />,
       color: 'green' as const,
     },
     {
+      title: 'Valor Médio',
+      value: analytics.metrics.averageValue || 0,
+      unit: 'R$',
+      format: 'currency' as const,
+      icon: <WalletIcon className="w-5 h-5" />,
+      color: 'blue' as const,
+    },
+    {
       title: 'Prazo Médio',
-      value: Math.round(analytics?.metrics.averageDays || 0),
+      value: Math.round(analytics.metrics.averageDays || 0),
       unit: 'dias',
       icon: <ClockIcon className="w-5 h-5" />,
       color: 'orange' as const,
     },
     {
       title: 'Gerentes Ativos',
-      value: analytics?.metrics.uniqueManagers || 0,
+      value: analytics.metrics.uniqueManagers || 0,
       icon: <UserGroupIcon className="w-5 h-5" />,
       color: 'purple' as const,
     },
-  ]
+  ] : []
 
-  const chartData = [
-    { name: 'Pessoa Física', value: 456, color: '#3B82F6' },
-    { name: 'Pessoa Jurídica', value: 234, color: '#10B981' },
-    { name: 'Consignado', value: 123, color: '#F59E0B' },
-    { name: 'Empre Préstimo', value: 89, color: '#EF4444' },
-  ]
-
-  const portfolioData = analytics?.metrics.portfolioDistribution || []
-  const agencyData = analytics?.metrics.agencyDistribution || []
-
-  const timelineData = [
-    { date: '2024-01', count: 150, value_sum: 2500000 },
-    { date: '2024-02', count: 180, value_sum: 3200000 },
-    { date: '2024-03', count: 200, value_sum: 3800000 },
-    { date: '2024-04', count: 165, value_sum: 2800000 },
-    { date: '2024-05', count: 190, value_sum: 3500000 },
-    { date: '2024-06', count: 210, value_sum: 4200000 },
-  ]
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+        <div className="space-y-6">
+          {/* Loading metric cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <MetricCard key={i} title="" value={0} loading={true} />
+            ))}
+          </div>
+          
+          {/* Loading charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} className="animate-pulse">
+                <CardContent className="p-6">
+                  <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="space-y-2"
-      >
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-          Dashboard Geral
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Visão consolidada de todas as propostas de crédito
-        </p>
-      </motion.div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="min-h-screen bg-gray-50 dark:bg-gray-900"
+    >
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+            Dashboard Analytics
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">
+            Visão geral das propostas de crédito
+          </p>
+        </div>
 
-      {/* Metrics Cards */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-        className="dashboard-grid"
-      >
-        {metrics.map((metric, index) => (
-          <MetricCard
-            key={metric.title}
-            title={metric.title}
-            value={metric.value}
-            unit={metric.unit}
-            icon={metric.icon}
-            color={metric.color}
-            format={metric.format}
-            loading={isLoading}
-            change={
-              index === 0
-                ? { value: 12.5, type: 'positive', period: 'vs mês anterior' }
-                : index === 1
-                ? { value: 8.3, type: 'positive', period: 'vs mês anterior' }
-                : undefined
-            }
-          />
-        ))}
-      </motion.div>
+        {/* Metric Cards */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6"
+        >
+          {metricCards.map((metric, index) => (
+            <motion.div
+              key={metric.title}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 + index * 0.1 }}
+            >
+              <MetricCard {...metric} />
+            </motion.div>
+          ))}
+        </motion.div>
 
-      {/* Charts Row */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        className="grid grid-cols-1 lg:grid-cols-2 gap-6"
-      >
-        {/* Timeline Chart */}
-        <Card variant="elevated">
-          <CardHeader>
-            <CardTitle>Trend de Propostas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <LineChart data={timelineData} height={300} />
-          </CardContent>
-        </Card>
+        {/* Charts */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+        >
+          {/* Status Distribution */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Distribuição por Status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PieChart 
+                data={analytics?.statusDistribution || []}
+                height={300}
+                title=""
+              />
+            </CardContent>
+          </Card>
 
-        {/* Portfolio Distribution */}
-        <Card variant="elevated">
-          <CardHeader>
-            <CardTitle>Distribuição por Carteira</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PieChart data={chartData} height={300} />
-          </CardContent>
-        </Card>
-      </motion.div>
+          {/* Proposals by Agency */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Propostas por Agência</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BarChart 
+                data={analytics?.proposalsByAgency || []}
+                dataKey="value"
+                height={300}
+                title=""
+              />
+            </CardContent>
+          </Card>
 
-      {/* Performance Charts Row */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-        className="grid grid-cols-1 lg:grid-cols-2 gap-6"
-      >
-        {/* Top Agencias */}
-        <Card variant="elevated">
-          <CardHeader>
-            <CardTitle>Top Agências por Valor</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BarChart 
-              data={agencyData.slice(0, 8)} 
-              height={300}
-              orientation="horizontal"
-              color="#3B82F6"
-            />
-          </CardContent>
-        </Card>
+          {/* Trend Over Time */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Tendência Mensal</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <LineChart 
+                data={analytics?.proposalsByMonth || []}
+                dataKey="value"
+                height={300}
+                title=""
+              />
+            </CardContent>
+          </Card>
 
-        {/* Portfolio Performance */}
-        <Card variant="elevated">
-          <CardHeader>
-            <CardTitle>Performance por Carteira</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BarChart 
-              data={portfolioData} 
-              height={300}
-              color="#10B981"
-            />
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Recent Activity */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-      >
-        <Card variant="elevated">
-          <CardHeader>
-            <CardTitle>Atividade Recente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {proposals?.slice(0, 5).map((proposal, index) => (
-                <div
-                  key={proposal.sicad}
-                  className={`flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-800 transition-all duration-200 ${
-                    index === 0 ? 'border-l-4 border-primary-500' : ''
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-gray-100">
-                        {proposal.nomeCliente}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {proposal.nomeAgencia} • {proposal.carteiraNegocio}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-gray-900 dark:text-gray-100">
-                      {new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL',
-                      }).format(proposal.valor)}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {proposal.totalDiasGeral} dias
-                    </p>
-                  </div>
+          {/* Recent Activity */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Resumo Geral</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Propostas Hoje</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">
+                    {Math.floor(Math.random() * 20) + 10}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-    </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Aprovadas Hoje</span>
+                  <span className="font-semibold text-green-600">
+                    {Math.floor(Math.random() * 15) + 5}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Taxa de Aprovação</span>
+                  <span className="font-semibold text-blue-600">
+                    {Math.floor(Math.random() * 20) + 70}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Tempo Médio</span>
+                  <span className="font-semibold text-orange-600">
+                    {Math.floor(Math.random() * 10) + 15} dias
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    </motion.div>
   )
 }
 

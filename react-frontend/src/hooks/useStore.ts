@@ -1,16 +1,16 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
-import { DashboardState, Filters, Alert } from '@/types/proposals'
+import { DashboardState, Filters, Alert, Proposal, Metrics, Benchmarks } from '@/types/proposals'
 
 interface StoreActions {
-  setProposals: (proposals: any[]) => void
+  setProposals: (proposals: Proposal[]) => void
   setFilters: (filters: Partial<Filters>) => void
   resetFilters: () => void
-  setMetrics: (metrics: any) => void
-  setBenchmarks: (benchmarks: any) => void
+  setMetrics: (metrics: Metrics) => void
+  setBenchmarks: (benchmarks: Benchmarks[]) => void
   setIsLoading: (loading: boolean) => void
   setError: (error: string | null) => void
-  addAlert: (alert: Omit<Alert, 'timestamp'>) => void
+  addAlert: (alert: Omit<Alert, 'id' | 'timestamp'>) => void
   removeAlert: (alertIndex: number) => void
   clearAlerts: () => void
   toggleDarkMode: () => void
@@ -74,6 +74,7 @@ export const useStore = create<DashboardState & StoreActions>()(
         addAlert: (alert) => {
           const newAlert: Alert = {
             ...alert,
+            id: `alert-${Date.now()}`,
             timestamp: new Date(),
           }
           set(
@@ -102,7 +103,6 @@ export const useStore = create<DashboardState & StoreActions>()(
           const newMode = !currentMode
           set({ isDarkMode: newMode }, false, 'toggleDarkMode')
           
-          // Update document class for dark mode
           if (newMode) {
             document.documentElement.classList.add('dark')
           } else {
@@ -158,3 +158,12 @@ export const useStoreActions = () => ({
   toggleSidebar: useStore((state) => state.toggleSidebar),
   setSidebarCollapsed: useStore((state) => state.setSidebarCollapsed),
 })
+
+// Individual action hooks
+export const useToggleDarkMode = () => useStore((state) => state.toggleDarkMode)
+export const useToggleSidebar = () => useStore((state) => state.toggleSidebar)
+
+// Additional hooks needed by components
+export const useSetFilters = () => useStore((state) => state.setFilters)
+export const useResetFilters = () => useStore((state) => state.resetFilters)
+export const useRemoveAlert = () => useStore((state) => state.removeAlert)
