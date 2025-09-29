@@ -12,8 +12,10 @@ import MetricCard from '@/components/ui/MetricCard'
 import PieChart from '@/components/charts/PieChart'
 import BarChart from '@/components/charts/BarChart'
 import LineChart from '@/components/charts/LineChart'
-import { useStoreActions } from '@/hooks/useStore'
+import { useProposals, useFilters, useStoreActions } from '@/hooks/useStore'
 import ApiService from '@/services/api'
+import DataTable, { DataTableColumn } from '@/components/ui/DataTable'
+import { formatDate } from '@/utils/formatters'
 
 interface AnalyticsData {
   metrics: any
@@ -24,6 +26,9 @@ interface AnalyticsData {
 
 const Dashboard = () => {
   const { setProposals, setMetrics, setIsLoading, addAlert } = useStoreActions()
+  const proposals = useProposals()
+  const filters = useFilters()
+  const [filteredProposals, setFilteredProposals] = useState<any[]>([])
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -67,6 +72,25 @@ const Dashboard = () => {
 
     loadData()
   }, [setProposals, setMetrics, setIsLoading, addAlert])
+
+  // Apply filters reactively and recompute analytics for the filtered view
+  useEffect(() => {
+    const apply = async () => {
+      // reuse ApiService filtering on current proposals
+      const result = await ApiService.filterProposals(filters as any)
+      setFilteredProposals(result)
+
+      const metrics = await ApiService.fetchMetrics()
+      const analyticsData: AnalyticsData = {
+        metrics,
+        proposalsByAgency: generateProposalsByAgency(result),
+        proposalsByMonth: generateProposalsByMonth(result),
+        statusDistribution: generateStatusDistribution(result),
+      }
+      setAnalytics(analyticsData)
+    }
+    apply()
+  }, [filters, proposals])
 
   const generateProposalsByAgency = (proposals: any[]) => {
     const agencyData = proposals.reduce((acc: any, p) => {
@@ -142,6 +166,17 @@ const Dashboard = () => {
       color: 'purple' as const,
     },
   ] : []
+
+  const tableColumns: DataTableColumn<any>[] = [
+    { key: 'sicad', label: 'SICAD', width: '110px' },
+    { key: 'nomeCliente', label: 'Cliente' },
+    { key: 'nomeAgencia', label: 'Agência' },
+    { key: 'carteiraNegocio', label: 'Carteira' },
+    { key: 'valor', label: 'Valor', align: 'right', format: 'currency' },
+    { key: 'diasTarefa', label: 'Dias', align: 'right', format: 'number' },
+    { key: 'statusPrioridade', label: 'Status' },
+    { key: 'dataCriacao', label: 'Criado em', format: (v) => formatDate(v) },
+  ]
 
   if (loading) {
     return (
@@ -290,6 +325,24 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
+        </motion.div>
+
+        {/* Propostas - Tabela */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="space-y-3"
+        >
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Propostas</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Lista das propostas mais recentes</p>
+          </div>
+          <DataTable
+            data={(filteredProposals || []) as any}
+            columns={tableColumns}
+            pageSize={10}
+          />
         </motion.div>
       </div>
     </motion.div>
